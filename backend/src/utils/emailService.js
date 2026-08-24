@@ -1,17 +1,10 @@
 import nodemailer from "nodemailer";
 import dns from "dns";
 
-// Force IPv4 resolution on cloud providers like Render where IPv6 is unreachable (ENETUNREACH)
-if (dns.setDefaultResultOrder) {
-  dns.setDefaultResultOrder("ipv4first");
-}
-
 export const sendEmail = async ({ to, subject, html, text }) => {
   const smtpUser = (process.env.SMTP_USER || process.env.EMAIL_USER || "").trim();
   const smtpPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || "").trim();
   const smtpHost = (process.env.SMTP_HOST || process.env.EMAIL_HOST || "smtp.gmail.com").trim();
-  const rawPort = process.env.SMTP_PORT || process.env.EMAIL_PORT;
-  const smtpPort = Number(rawPort) || 465;
 
   if (!smtpUser || !smtpPass) {
     console.log(`[Email Service Bypass - Missing Credentials] Target: ${to} | Subject: ${subject}`);
@@ -19,23 +12,28 @@ export const sendEmail = async ({ to, subject, html, text }) => {
   }
 
   try {
+    let resolvedHost = smtpHost;
     const isGmail = smtpHost.includes("gmail") || smtpUser.includes("@gmail.com");
-    const finalPort = isGmail ? 465 : smtpPort;
-    const finalSecure = isGmail ? true : (finalPort === 465);
 
-    // Custom DNS lookup to strictly force IPv4 resolution (bypassing Render IPv6 ENETUNREACH issue)
-    const customLookup = (hostname, options, callback) => {
-      dns.lookup(hostname, { family: 4 }, (err, address, family) => {
-        if (err) return callback(err);
-        return callback(null, address, family);
-      });
-    };
+    if (isGmail) {
+      try {
+        const addresses = await dns.promises.resolve4("smtp.gmail.com");
+        if (addresses && addresses.length > 0) {
+          resolvedHost = addresses[0]; // e.g. "142.250.141.108"
+        }
+      } catch (dnsErr) {
+        console.warn("[Email Service] IPv4 DNS resolve fallback:", dnsErr.message);
+      }
+    }
 
     const transporter = nodemailer.createTransport({
-      host: isGmail ? "smtp.gmail.com" : smtpHost,
-      port: finalPort,
-      secure: finalSecure,
-      lookup: customLookup,
+      host: resolvedHost,
+      port: 465,
+      secure: true,
+      tls: {
+        servername: "smtp.gmail.com",
+        rejectUnauthorized: false,
+      },
       auth: {
         user: smtpUser,
         pass: smtpPass,
@@ -45,7 +43,7 @@ export const sendEmail = async ({ to, subject, html, text }) => {
       socketTimeout: 10000,
     });
 
-    console.log(`[Email Service] Sending via ${smtpUser} (Host: ${isGmail ? "smtp.gmail.com" : smtpHost}, Port: ${finalPort}, Secure: ${finalSecure}, IPv4)...`);
+    console.log(`[Email Service] Attempting IPv4 direct send to ${to} via ${smtpUser} (${resolvedHost}:465)...`);
 
     const info = await Promise.race([
       transporter.sendMail({
