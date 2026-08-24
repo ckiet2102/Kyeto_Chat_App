@@ -12,11 +12,15 @@ export const sendEmail = async ({ to, subject, html, text }) => {
   }
 
   try {
-    // Port 465 SSL is required on Cloud Hosting (Render/AWS) where Port 587 TLS is blocked
+    // For Gmail on cloud hosting (Render), Port 465 with SSL (secure: true) is mandatory because Port 587 is blocked
+    const isGmail = smtpHost.includes("gmail") || smtpService === "gmail" || smtpUser.includes("@gmail.com");
+    const finalPort = isGmail ? 465 : (smtpPort || 465);
+    const finalSecure = isGmail ? true : (finalPort === 465);
+
     const transporter = nodemailer.createTransport({
-      host: smtpHost.includes("gmail") ? "smtp.gmail.com" : smtpHost,
-      port: smtpPort,
-      secure: smtpPort === 465 || smtpPort === 465,
+      host: isGmail ? "smtp.gmail.com" : smtpHost,
+      port: finalPort,
+      secure: finalSecure,
       auth: {
         user: smtpUser,
         pass: smtpPass,
@@ -26,7 +30,7 @@ export const sendEmail = async ({ to, subject, html, text }) => {
       socketTimeout: 10000,
     });
 
-    console.log(`[Email Service] Attempting SMTP send to ${to} via ${smtpUser} (Port ${smtpPort})...`);
+    console.log(`[Email Service] Attempting SMTP send to ${to} via ${smtpUser} (Host: ${isGmail ? "smtp.gmail.com" : smtpHost}, Port: ${finalPort}, Secure: ${finalSecure})...`);
 
     const info = await Promise.race([
       transporter.sendMail({
