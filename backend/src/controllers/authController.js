@@ -96,23 +96,22 @@ export const signUp = async (req, res) => {
 
     console.log(`[Sign Up OTP for ${user.email}]: ${signupOtp}`);
 
-    try {
-      await sendEmail({
-        to: user.email,
-        subject: `Mã OTP Xác thực Đăng ký Kyeto Chat: ${signupOtp}`,
-        html: `<div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #0f172a; color: #f8fafc;">
-          <h2 style="color: #fbbf24; text-align: center; font-size: 24px; margin-top: 0;">Xác Thực Đăng Ký Tài Khoản</h2>
-          <p style="color: #cbd5e1; font-size: 15px;">Chào mừng <strong>${user.displayName}</strong> đến với Kyeto Chat!</p>
-          <p style="color: #cbd5e1; font-size: 15px;">Mã OTP 6 số để hoàn tất đăng ký tài khoản của bạn là:</p>
-          <div style="text-align: center; margin: 24px 0;">
-            <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #fbbf24; background: rgba(251, 191, 36, 0.1); padding: 12px 24px; border-radius: 8px; border: 1px dashed #fbbf24; display: inline-block;">${signupOtp}</span>
-          </div>
-          <p style="color: #94a3b8; font-size: 13px; text-align: center;">Mã OTP có hiệu lực trong 10 phút. Vui lòng nhập mã để kích hoạt tài khoản.</p>
-        </div>`,
-      });
-    } catch (emailErr) {
+    // Send email asynchronously in background so signup HTTP response returns instantly
+    sendEmail({
+      to: user.email,
+      subject: `Mã OTP Xác thực Đăng ký Kyeto Chat: ${signupOtp}`,
+      html: `<div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #0f172a; color: #f8fafc;">
+        <h2 style="color: #fbbf24; text-align: center; font-size: 24px; margin-top: 0;">Xác Thực Đăng Ký Tài Khoản</h2>
+        <p style="color: #cbd5e1; font-size: 15px;">Chào mừng <strong>${user.displayName}</strong> đến với Kyeto Chat!</p>
+        <p style="color: #cbd5e1; font-size: 15px;">Mã OTP 6 số để hoàn tất đăng ký tài khoản của bạn là:</p>
+        <div style="text-align: center; margin: 24px 0;">
+          <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #fbbf24; background: rgba(251, 191, 36, 0.1); padding: 12px 24px; border-radius: 8px; border: 1px dashed #fbbf24; display: inline-block;">${signupOtp}</span>
+        </div>
+        <p style="color: #94a3b8; font-size: 13px; text-align: center;">Mã OTP có hiệu lực trong 10 phút. Vui lòng nhập mã để kích hoạt tài khoản.</p>
+      </div>`,
+    }).catch((emailErr) => {
       console.warn("Could not send registration email:", emailErr);
-    }
+    });
 
     return res.status(201).json({
       message: "Đăng ký thành công! Vui lòng nhập mã OTP 6 số đã được gửi đến email của bạn.",
