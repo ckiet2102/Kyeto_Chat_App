@@ -23,11 +23,19 @@ export const sendEmail = async ({ to, subject, html, text }) => {
     const finalPort = isGmail ? 465 : smtpPort;
     const finalSecure = isGmail ? true : (finalPort === 465);
 
+    // Custom DNS lookup to strictly force IPv4 resolution (bypassing Render IPv6 ENETUNREACH issue)
+    const customLookup = (hostname, options, callback) => {
+      dns.lookup(hostname, { family: 4 }, (err, address, family) => {
+        if (err) return callback(err);
+        return callback(null, address, family);
+      });
+    };
+
     const transporter = nodemailer.createTransport({
       host: isGmail ? "smtp.gmail.com" : smtpHost,
       port: finalPort,
       secure: finalSecure,
-      family: 4, // Force IPv4 to prevent ENETUNREACH error on Render
+      lookup: customLookup,
       auth: {
         user: smtpUser,
         pass: smtpPass,
