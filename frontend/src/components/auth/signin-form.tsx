@@ -8,8 +8,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Label } from "../ui/label";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useNavigate } from "react-router";
-import { useGoogleLogin } from "@react-oauth/google";
-import { toast } from "sonner";
 import { useState } from "react";
 import { LegalModal } from "@/components/legal/LegalModal";
 
@@ -21,7 +19,7 @@ const signInSchema = z.object({
 type SignInFormValues = z.infer<typeof signInSchema>;
 
 export function SigninForm({ className, ...props }: React.ComponentProps<"div">) {
-  const { signIn, signInWithGoogle, loading } = useAuthStore();
+  const { signIn, loading } = useAuthStore();
   const navigate = useNavigate();
   const [legalModalType, setLegalModalType] = useState<"terms" | "privacy" | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -33,20 +31,6 @@ export function SigninForm({ className, ...props }: React.ComponentProps<"div">)
     }
     return "https://kyeto-backend.onrender.com/api";
   };
-
-  const handleGoogleLogin = useGoogleLogin({
-    onSuccess: async (tokenResponse) => {
-      const token = tokenResponse.access_token;
-      if (token) {
-        const ok = await signInWithGoogle(token);
-        if (ok) navigate("/");
-      }
-    },
-    onError: (err) => {
-      console.warn("Google popup error, falling back to Passport OAuth:", err);
-      window.location.href = `${getApiUrl()}/auth/google`;
-    },
-  });
   const {
     register,
     handleSubmit,

@@ -9,7 +9,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Label } from "../ui/label";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useNavigate } from "react-router";
-import { useGoogleLogin } from "@react-oauth/google";
 import { toast } from "sonner";
 import { authService } from "@/services/authService";
 import { RefreshCw, ShieldCheck, ArrowLeft } from "lucide-react";
@@ -26,7 +25,7 @@ const signUpSchema = z.object({
 type SignUpFormValues = z.infer<typeof signUpSchema>;
 
 export function SignupForm({ className, ...props }: React.ComponentProps<"div">) {
-  const { signUp, signInWithGoogle, setAccessToken, setUser } = useAuthStore();
+  const { signUp, setAccessToken, setUser } = useAuthStore();
   const navigate = useNavigate();
 
   // 2-Step Registration Flow States
@@ -61,20 +60,6 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"div">)
     }
     return "https://kyeto-backend.onrender.com/api";
   };
-
-  const handleGoogleLogin = useGoogleLogin({
-    onSuccess: async (tokenResponse) => {
-      const token = tokenResponse.access_token;
-      if (token) {
-        const ok = await signInWithGoogle(token);
-        if (ok) navigate("/");
-      }
-    },
-    onError: (err) => {
-      console.warn("Google popup error, falling back to Passport OAuth:", err);
-      window.location.href = `${getApiUrl()}/auth/google`;
-    },
-  });
 
   const {
     register,
