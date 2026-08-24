@@ -50,11 +50,12 @@ const MessageInput = ({ selectedConvo }: { selectedConvo: Conversation }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSendVoice = async (blob: Blob, duration?: number) => {
+  const handleSendVoice = async (blob: Blob, duration?: number, extension: string = "webm") => {
     try {
       setUploading(true);
+      const filename = `voice-message.${extension}`;
       const formData = new FormData();
-      formData.append("file", blob, "voice-message.webm");
+      formData.append("file", blob, filename);
       const cloudFile = await chatService.uploadCloudFile(formData);
 
       const voiceContent = duration && duration > 0 ? `${duration}s` : "";
@@ -62,10 +63,10 @@ const MessageInput = ({ selectedConvo }: { selectedConvo: Conversation }) => {
       if (selectedConvo.type === "direct") {
         const otherUser = selectedConvo.participants.find((p) => p._id !== user?._id);
         if (otherUser) {
-          await sendDirectMessage(otherUser._id, voiceContent, undefined, selectedConvo._id, undefined, cloudFile.fileUrl, "voice-message.webm", cloudFile.fileSize, "voice");
+          await sendDirectMessage(otherUser._id, voiceContent, undefined, selectedConvo._id, undefined, cloudFile.fileUrl, filename, cloudFile.fileSize, "voice");
         }
       } else {
-        await sendGroupMessage(selectedConvo._id, voiceContent, undefined, undefined, cloudFile.fileUrl, "voice-message.webm", cloudFile.fileSize, "voice");
+        await sendGroupMessage(selectedConvo._id, voiceContent, undefined, undefined, cloudFile.fileUrl, filename, cloudFile.fileSize, "voice");
       }
       toast.success("Đã gửi tin nhắn thoại!");
       setIsRecordingVoice(false);

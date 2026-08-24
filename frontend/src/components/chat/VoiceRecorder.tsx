@@ -4,14 +4,34 @@ import { Square, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface VoiceRecorderProps {
-  onSendVoice: (audioBlob: Blob, duration: number) => void;
+  onSendVoice: (audioBlob: Blob, duration: number, extension: string) => void;
   onCancel: () => void;
 }
+
+export const getSupportedAudioMimeType = (): { mimeType: string; extension: string } => {
+  const candidates = [
+    { mimeType: "audio/webm;codecs=opus", extension: "webm" },
+    { mimeType: "audio/mp4", extension: "m4a" },
+    { mimeType: "audio/aac", extension: "aac" },
+    { mimeType: "audio/webm", extension: "webm" },
+    { mimeType: "audio/ogg;codecs=opus", extension: "ogg" },
+  ];
+
+  if (typeof MediaRecorder !== "undefined" && typeof MediaRecorder.isTypeSupported === "function") {
+    for (const candidate of candidates) {
+      if (MediaRecorder.isTypeSupported(candidate.mimeType)) {
+        return candidate;
+      }
+    }
+  }
+  return { mimeType: "audio/webm", extension: "webm" };
+};
 
 export default function VoiceRecorder({ onSendVoice, onCancel }: VoiceRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [recordedExtension, setRecordedExtension] = useState<string>("webm");
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -38,7 +58,11 @@ export default function VoiceRecorder({ onSendVoice, onCancel }: VoiceRecorderPr
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      const { mimeType, extension } = getSupportedAudioMimeType();
+      setRecordedExtension(extension);
+
+      const options = mimeType ? { mimeType } : undefined;
+      const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
@@ -47,7 +71,8 @@ export default function VoiceRecorder({ onSendVoice, onCancel }: VoiceRecorderPr
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const actualType = mediaRecorder.mimeType || mimeType || "audio/webm";
+        const blob = new Blob(chunksRef.current, { type: actualType });
         setRecordedBlob(blob);
         // Stop audio tracks
         stream.getTracks().forEach((track) => track.stop());
@@ -73,7 +98,7 @@ export default function VoiceRecorder({ onSendVoice, onCancel }: VoiceRecorderPr
 
   const handleSend = () => {
     if (recordedBlob) {
-      onSendVoice(recordedBlob, seconds);
+      onSendVoice(recordedBlob, seconds, recordedExtension);
     }
   };
 

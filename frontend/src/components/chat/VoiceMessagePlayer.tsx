@@ -23,6 +23,7 @@ export default function VoiceMessagePlayer({
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState<number>(initialDuration);
+  const [hasError, setHasError] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const formatTime = (secs: number) => {
@@ -33,12 +34,16 @@ export default function VoiceMessagePlayer({
   };
 
   const togglePlay = () => {
-    if (!audioRef.current) return;
+    if (!audioRef.current || hasError) return;
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      audioRef.current.play().catch(console.error);
+      audioRef.current.play().catch((err) => {
+        console.error("Audio playback error:", err);
+        setHasError(true);
+        setIsPlaying(false);
+      });
       setIsPlaying(true);
     }
   };
@@ -50,6 +55,7 @@ export default function VoiceMessagePlayer({
   };
 
   const handleLoadedMetadata = () => {
+    setHasError(false);
     if (audioRef.current && isFinite(audioRef.current.duration) && audioRef.current.duration > 0) {
       setDuration(audioRef.current.duration);
     }
@@ -58,6 +64,12 @@ export default function VoiceMessagePlayer({
   const handleEnded = () => {
     setIsPlaying(false);
     setCurrentTime(0);
+  };
+
+  const handleError = (e: any) => {
+    console.warn("[VoiceMessagePlayer] Audio error:", e);
+    setHasError(true);
+    setIsPlaying(false);
   };
 
   const effectiveDuration = duration || initialDuration;
@@ -93,10 +105,13 @@ export default function VoiceMessagePlayer({
       <audio
         ref={audioRef}
         src={src}
+        preload="metadata"
+        crossOrigin="anonymous"
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onDurationChange={handleLoadedMetadata}
         onEnded={handleEnded}
+        onError={handleError}
       />
 
       {/* Solid Play/Pause Button */}

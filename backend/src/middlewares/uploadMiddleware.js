@@ -12,17 +12,25 @@ export const upload = multer({
 
 export const uploadImageFromBuffer = async (buffer, options = {}, filenameHint = "file") => {
   try {
+    const ext = path.extname(filenameHint).toLowerCase();
+    const isImage = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"].includes(ext);
+
     // Thử upload lên Cloudinary trước
     if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY) {
+      const cloudinaryOptions = {
+        folder: "moji_chat/uploads",
+        resource_type: "auto",
+        ...options,
+      };
+
+      if (isImage) {
+        cloudinaryOptions.transformation = [{ width: 1200, crop: "limit" }];
+        cloudinaryOptions.eager = [{ width: 400, crop: "limit", format: "jpg" }];
+      }
+
       const result = await new Promise((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
-          {
-            folder: "moji_chat/uploads",
-            resource_type: "auto",
-            transformation: [{ width: 1200, crop: "limit" }],
-            eager: [{ width: 400, crop: "limit", format: "jpg" }],
-            ...options,
-          },
+          cloudinaryOptions,
           (error, res) => {
             if (error) reject(error);
             else resolve(res);

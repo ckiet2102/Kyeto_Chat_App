@@ -22,7 +22,25 @@ const PORT = process.env.PORT || 5001;
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:5173", credentials: true }));
-app.use("/uploads", express.static("uploads"));
+app.use(
+  "/uploads",
+  express.static("uploads", {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".webm")) {
+        res.setHeader("Content-Type", "audio/webm");
+      } else if (filePath.endsWith(".m4a") || filePath.endsWith(".mp4") || filePath.endsWith(".aac")) {
+        res.setHeader("Content-Type", "audio/mp4");
+      } else if (filePath.endsWith(".ogg")) {
+        res.setHeader("Content-Type", "audio/ogg");
+      } else if (filePath.endsWith(".mp3")) {
+        res.setHeader("Content-Type", "audio/mpeg");
+      } else if (filePath.endsWith(".wav")) {
+        res.setHeader("Content-Type", "audio/wav");
+      }
+      res.setHeader("Accept-Ranges", "bytes");
+    },
+  })
+);
 
 // CLOUDINARY Configuration
 cloudinary.config({
