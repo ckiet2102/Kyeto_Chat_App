@@ -9,6 +9,9 @@ const ICE_SERVERS = {
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
     { urls: "stun:stun2.l.google.com:19302" },
+    { urls: "stun:stun3.l.google.com:19302" },
+    { urls: "stun:stun4.l.google.com:19302" },
+    { urls: "stun:global.stun.twilio.com:3478" },
   ],
 };
 
@@ -50,6 +53,7 @@ interface CallStore {
     offer: RTCSessionDescriptionInit;
     isVideo: boolean;
   }) => void;
+  handleDismissIncomingCall: () => void;
   answerCall: () => Promise<void>;
   rejectCall: () => void;
   endCall: () => void;
@@ -181,6 +185,19 @@ export const useCallStore = create<CallStore>((set, get) => ({
       targetId: caller._id,
     });
     soundService.playIncomingRingtone();
+  },
+
+  handleDismissIncomingCall: () => {
+    const { callState } = get();
+    if (callState === "incoming") {
+      soundService.stopSound();
+      set({
+        callState: "idle",
+        incomingOffer: null,
+        caller: null,
+        targetId: null,
+      });
+    }
   },
 
   answerCall: async () => {
@@ -434,6 +451,12 @@ export const useCallStore = create<CallStore>((set, get) => ({
     socket.on("incoming-call", (data) => {
       console.log("[GlobalCallSocket] Nhận tín hiệu incoming-call (cá nhân):", data);
       get().handleIncomingCall(data);
+    });
+
+    socket.off("dismiss-incoming-call");
+    socket.on("dismiss-incoming-call", () => {
+      console.log("[GlobalCallSocket] Đã xử lý cuộc gọi trên thiết bị khác -> Đóng popup & tắt chuông");
+      get().handleDismissIncomingCall();
     });
 
     socket.off("call-accepted");

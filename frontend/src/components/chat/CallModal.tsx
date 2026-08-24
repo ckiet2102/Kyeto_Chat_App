@@ -34,6 +34,7 @@ const CallModal = () => {
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
     if (callState === "calling") {
@@ -56,6 +57,12 @@ const CallModal = () => {
     if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
     }
+    if (remoteAudioRef.current && remoteStream) {
+      remoteAudioRef.current.srcObject = remoteStream;
+      remoteAudioRef.current.play().catch((err) => {
+        console.warn("[WebRTC Audio] Remote audio autoplay error:", err);
+      });
+    }
   }, [remoteStream]);
 
   if (callState !== "calling" && callState !== "connected") return null;
@@ -64,6 +71,9 @@ const CallModal = () => {
 
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex flex-col justify-between p-4 sm:p-6 animate-in fade-in duration-300">
+      {/* Hidden Audio Element for WebRTC Remote Stream Audio */}
+      <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
+
       {/* Header Info */}
       <div className="flex items-center justify-between text-white z-10">
         <div className="flex items-center gap-3">

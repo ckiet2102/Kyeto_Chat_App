@@ -47,6 +47,12 @@ export const registerCallHandlers = (io, socket, user) => {
       },
       answer,
     });
+
+    // Multi-device sync: Notify callee's other logged in devices to dismiss incoming call popup & ring
+    socket.to(user._id.toString()).emit("dismiss-incoming-call", {
+      callerId,
+      reason: "answered_on_other_device",
+    });
   });
 
   // 3. ICE Candidates exchange
@@ -70,6 +76,13 @@ export const registerCallHandlers = (io, socket, user) => {
         calleeId: user._id,
       });
     }
+
+    // Multi-device sync: Notify callee's other logged in devices to dismiss incoming call popup & ring
+    socket.to(user._id.toString()).emit("dismiss-incoming-call", {
+      callerId,
+      conversationId,
+      reason: "rejected_on_other_device",
+    });
   });
 
   // 5. End call
