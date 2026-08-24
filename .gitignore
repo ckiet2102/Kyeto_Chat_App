@@ -33,3 +33,9 @@ dist-ssr
 backend/db-data/
 backend/uploads/
 
+# Non-production directories
+.agent/
+extension/
+openspec/
+
+
