@@ -12,7 +12,8 @@ export const sendEmail = async ({ to, subject, html, text }) => {
   // 1. HTTP REST API: Brevo (Sendinblue) - Allows sending to ANY recipient email address
   if (brevoApiKey) {
     try {
-      console.log(`[Email Service] Sending via Brevo HTTP API to ${targetEmail}...`);
+      const senderEmail = smtpUser && smtpUser.includes("@") ? smtpUser : "ckiet2102@gmail.com";
+      console.log(`[Email Service] Sending via Brevo HTTP API (Sender: ${senderEmail}) to ${targetEmail}...`);
       const response = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: {
@@ -21,7 +22,7 @@ export const sendEmail = async ({ to, subject, html, text }) => {
           accept: "application/json",
         },
         body: JSON.stringify({
-          sender: { name: "Kyeto Chat", email: "noreply@kyeto.chat" },
+          sender: { name: "Kyeto Chat", email: senderEmail },
           to: [{ email: targetEmail }],
           subject,
           htmlContent: html,
