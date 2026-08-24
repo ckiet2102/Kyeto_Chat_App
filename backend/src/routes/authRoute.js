@@ -68,11 +68,22 @@ router.get("/google", (req, res, next) => {
   }
 });
 
-router.get(
-  "/google/callback",
-  passport.authenticate("google", { session: false, failureRedirect: "/signin?error=oauth" }),
-  handleOAuthSuccess
-);
+router.get("/google/callback", (req, res, next) => {
+  passport.authenticate("google", { session: false }, (err, user, info) => {
+    if (err) {
+      console.error("Passport Google Auth Error:", err);
+      const targetUrl = process.env.CLIENT_URL || "https://kyeto-chat-app.vercel.app";
+      return res.redirect(`${targetUrl}/signin?error=google_auth_failed`);
+    }
+    if (!user) {
+      console.warn("Passport Google Auth No User:", info);
+      const targetUrl = process.env.CLIENT_URL || "https://kyeto-chat-app.vercel.app";
+      return res.redirect(`${targetUrl}/signin?error=no_user`);
+    }
+    req.user = user;
+    return handleOAuthSuccess(req, res);
+  })(req, res, next);
+});
 
 router.get("/github", (req, res, next) => {
   if (!process.env.GITHUB_CLIENT_ID || process.env.GITHUB_CLIENT_ID.includes("demo")) {
@@ -95,10 +106,21 @@ router.get("/github", (req, res, next) => {
   }
 });
 
-router.get(
-  "/github/callback",
-  passport.authenticate("github", { session: false, failureRedirect: "/signin?error=oauth" }),
-  handleOAuthSuccess
-);
+router.get("/github/callback", (req, res, next) => {
+  passport.authenticate("github", { session: false }, (err, user, info) => {
+    if (err) {
+      console.error("Passport GitHub Auth Error:", err);
+      const targetUrl = process.env.CLIENT_URL || "https://kyeto-chat-app.vercel.app";
+      return res.redirect(`${targetUrl}/signin?error=github_auth_failed`);
+    }
+    if (!user) {
+      console.warn("Passport GitHub Auth No User:", info);
+      const targetUrl = process.env.CLIENT_URL || "https://kyeto-chat-app.vercel.app";
+      return res.redirect(`${targetUrl}/signin?error=no_user`);
+    }
+    req.user = user;
+    return handleOAuthSuccess(req, res);
+  })(req, res, next);
+});
 
 export default router;
