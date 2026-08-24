@@ -24,22 +24,28 @@ if (process.env.SMTP_USER && process.env.SMTP_PASS) {
 }
 
 export const sendEmail = async ({ to, subject, html, text }) => {
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    console.log(`[Email Service Bypass] Email to ${to}: ${subject}`);
+    return true;
+  }
   try {
     const senderEmail = process.env.SMTP_USER || "noreply@kyeto.chat";
-    const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || `"Kyeto Chat" <${senderEmail}>`,
-      to,
-      subject,
-      text: text || html.replace(/<[^>]*>?/gm, ""),
-      html,
-    });
+    await Promise.race([
+      transporter.sendMail({
+        from: process.env.EMAIL_FROM || `"Kyeto Chat" <${senderEmail}>`,
+        to,
+        subject,
+        text: text || (html ? html.replace(/<[^>]*>?/gm, "") : ""),
+        html,
+      }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Email send timeout after 3s")), 3000)
+      ),
+    ]);
     console.log(`[Email Service] Sent email to ${to}: ${subject}`);
-    if (info.message) {
-      console.log(`[Email Content Log]:`, info.message);
-    }
     return true;
   } catch (error) {
-    console.error("[Email Service Error]:", error);
+    console.error("[Email Service Warning]:", error.message);
     return false;
   }
 };
