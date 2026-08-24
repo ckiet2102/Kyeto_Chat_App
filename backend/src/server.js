@@ -37,6 +37,8 @@ const swaggerDocument = JSON.parse(fs.readFileSync("./src/swagger.json", "utf8")
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // public routes
+import { testEmailDiagnostic } from "./controllers/authController.js";
+app.get("/api/test-email", testEmailDiagnostic);
 app.use("/api/auth", authRoute);
 
 // private routes
