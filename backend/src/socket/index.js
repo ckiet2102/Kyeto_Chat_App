@@ -6,13 +6,15 @@ import { getUserConversationsForSocketIO } from "../controllers/conversationCont
 
 import { registerCallHandlers } from "./callHandler.js";
 
+import { socketCorsOriginDelegate } from "../libs/corsConfig.js";
+
 const app = express();
 
 const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL,
+    origin: socketCorsOriginDelegate,
     credentials: true,
   },
 });

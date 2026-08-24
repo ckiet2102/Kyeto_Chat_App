@@ -28,10 +28,12 @@ export const generateTokensAndSession = async (user, res) => {
   });
 
   const isProduction = process.env.NODE_ENV === "production";
+  const isHttps = isProduction || Boolean(res.req?.secure) || res.req?.headers?.["x-forwarded-proto"] === "https";
+
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? "none" : "lax",
+    secure: isHttps,
+    sameSite: isHttps ? "none" : "lax",
     maxAge: REFRESH_TOKEN_TTL,
   });
 
@@ -281,10 +283,12 @@ export const signOut = async (req, res) => {
     if (token) {
       await Session.deleteOne({ refreshToken: token });
       const isProduction = process.env.NODE_ENV === "production";
+      const isHttps = isProduction || Boolean(req.secure) || req.headers?.["x-forwarded-proto"] === "https";
+
       res.clearCookie("refreshToken", {
         httpOnly: true,
-        secure: isProduction,
-        sameSite: isProduction ? "none" : "lax",
+        secure: isHttps,
+        sameSite: isHttps ? "none" : "lax",
       });
     }
     return res.sendStatus(204);

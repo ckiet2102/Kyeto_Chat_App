@@ -18,10 +18,12 @@ import { v2 as cloudinary } from "cloudinary";
 // const app = express();
 const PORT = process.env.PORT || 5001;
 
+import { corsOptionsDelegate } from "./libs/corsConfig.js";
+
 // middlewares
 app.use(express.json());
 app.use(cookieParser());
-app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:5173", credentials: true }));
+app.use(cors(corsOptionsDelegate));
 app.use(
   "/uploads",
   express.static("uploads", {
