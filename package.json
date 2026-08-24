@@ -1,0 +1,12 @@
+{
+  "name": "kyeto-chat-app",
+  "private": true,
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build"
+  },
+  "overrides": {
+    "@emoji-mart/react": {
+      "react": "$react"
+    }
+  }
+}
