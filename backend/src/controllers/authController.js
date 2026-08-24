@@ -52,50 +52,62 @@ export const signUp = async (req, res) => {
 
     const displayName = `${lastName} ${firstName}`.trim() || username;
 
-    const [duplicateUsername, duplicateEmail] = await Promise.all([
-      User.findOne({ username: username.toLowerCase() }),
-      User.findOne({ email: email.toLowerCase() }),
-    ]);
+    let existingEmailUser = await User.findOne({ email: email.toLowerCase() });
 
-    if (duplicateUsername) {
-      return res.status(409).json({ message: "Tên đăng nhập này đã tồn tại" });
+    if (existingEmailUser && existingEmailUser.emailVerified) {
+      return res.status(409).json({ message: "Email này đã được sử dụng" });
     }
 
-    if (duplicateEmail) {
-      return res.status(409).json({ message: "Email này đã được sử dụng" });
+    let existingUsernameUser = await User.findOne({ username: username.toLowerCase() });
+    if (existingUsernameUser && existingUsernameUser.emailVerified && existingUsernameUser.email !== email.toLowerCase()) {
+      return res.status(409).json({ message: "Tên đăng nhập này đã tồn tại" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const emailVerifyToken = crypto.randomBytes(32).toString("hex");
     const signupOtp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    const user = await User.create({
-      username: username.toLowerCase(),
-      hashedPassword,
-      email: email.toLowerCase(),
-      displayName,
-      emailVerifyToken,
-      signupOtp,
-      signupOtpExpires: Date.now() + 10 * 60 * 1000, // 10 minutes
-      emailVerified: false,
-    });
+    let user;
+
+    if (existingEmailUser && !existingEmailUser.emailVerified) {
+      existingEmailUser.username = username.toLowerCase();
+      existingEmailUser.hashedPassword = hashedPassword;
+      existingEmailUser.displayName = displayName;
+      existingEmailUser.signupOtp = signupOtp;
+      existingEmailUser.signupOtpExpires = Date.now() + 10 * 60 * 1000;
+      user = await existingEmailUser.save();
+    } else {
+      user = await User.create({
+        username: username.toLowerCase(),
+        hashedPassword,
+        email: email.toLowerCase(),
+        displayName,
+        emailVerifyToken,
+        signupOtp,
+        signupOtpExpires: Date.now() + 10 * 60 * 1000,
+        emailVerified: false,
+      });
+    }
 
     console.log(`[Sign Up OTP for ${user.email}]: ${signupOtp}`);
 
-    // Send 6-digit OTP verification email
-    await sendEmail({
-      to: user.email,
-      subject: `Mã OTP Xác thực Đăng ký Kyeto Chat: ${signupOtp}`,
-      html: `<div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #0f172a; color: #f8fafc;">
-        <h2 style="color: #fbbf24; text-align: center; font-size: 24px; margin-top: 0;">Xác Thực Đăng Ký Tài Khoản</h2>
-        <p style="color: #cbd5e1; font-size: 15px;">Chào mừng <strong>${user.displayName}</strong> đến với Kyeto Chat!</p>
-        <p style="color: #cbd5e1; font-size: 15px;">Mã OTP 6 số để hoàn tất đăng ký tài khoản của bạn là:</p>
-        <div style="text-align: center; margin: 24px 0;">
-          <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #fbbf24; background: rgba(251, 191, 36, 0.1); padding: 12px 24px; border-radius: 8px; border: 1px dashed #fbbf24; display: inline-block;">${signupOtp}</span>
-        </div>
-        <p style="color: #94a3b8; font-size: 13px; text-align: center;">Mã OTP có hiệu lực trong 10 phút. Vui lòng nhập mã để kích hoạt tài khoản.</p>
-      </div>`,
-    });
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: `Mã OTP Xác thực Đăng ký Kyeto Chat: ${signupOtp}`,
+        html: `<div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #0f172a; color: #f8fafc;">
+          <h2 style="color: #fbbf24; text-align: center; font-size: 24px; margin-top: 0;">Xác Thực Đăng Ký Tài Khoản</h2>
+          <p style="color: #cbd5e1; font-size: 15px;">Chào mừng <strong>${user.displayName}</strong> đến với Kyeto Chat!</p>
+          <p style="color: #cbd5e1; font-size: 15px;">Mã OTP 6 số để hoàn tất đăng ký tài khoản của bạn là:</p>
+          <div style="text-align: center; margin: 24px 0;">
+            <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #fbbf24; background: rgba(251, 191, 36, 0.1); padding: 12px 24px; border-radius: 8px; border: 1px dashed #fbbf24; display: inline-block;">${signupOtp}</span>
+          </div>
+          <p style="color: #94a3b8; font-size: 13px; text-align: center;">Mã OTP có hiệu lực trong 10 phút. Vui lòng nhập mã để kích hoạt tài khoản.</p>
+        </div>`,
+      });
+    } catch (emailErr) {
+      console.warn("Could not send registration email:", emailErr);
+    }
 
     return res.status(201).json({
       message: "Đăng ký thành công! Vui lòng nhập mã OTP 6 số đã được gửi đến email của bạn.",
