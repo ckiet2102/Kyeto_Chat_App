@@ -20,7 +20,7 @@ export const sendEmail = async ({ to, subject, html, text }) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: process.env.EMAIL_FROM || "Kyeto Chat <onboarding@resend.dev>",
+          from: process.env.RESEND_FROM || "Kyeto Chat <onboarding@resend.dev>",
           to: [targetEmail],
           subject,
           html,
