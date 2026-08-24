@@ -56,13 +56,20 @@ const CallModal = () => {
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
+      remoteVideoRef.current.play().catch(() => {});
     }
     if (remoteAudioRef.current && remoteStream) {
       remoteAudioRef.current.srcObject = remoteStream;
+      remoteAudioRef.current.volume = 1.0;
+      remoteAudioRef.current.muted = false;
       const playAudio = () => {
-        remoteAudioRef.current?.play().catch((err) => {
-          console.warn("[WebRTC Audio] Remote audio autoplay error:", err);
-        });
+        if (remoteAudioRef.current) {
+          remoteAudioRef.current.volume = 1.0;
+          remoteAudioRef.current.muted = false;
+          remoteAudioRef.current.play().catch((err) => {
+            console.warn("[WebRTC Audio] Remote audio autoplay error:", err);
+          });
+        }
       };
       playAudio();
       remoteStream.onaddtrack = () => playAudio();
@@ -75,8 +82,8 @@ const CallModal = () => {
 
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex flex-col justify-between p-4 sm:p-6 animate-in fade-in duration-300">
-      {/* Hidden Audio Element for WebRTC Remote Stream Audio */}
-      <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
+      {/* Audio Element for WebRTC Remote Stream Audio (Positioned in DOM without display:none for iOS Safari) */}
+      <audio ref={remoteAudioRef} autoPlay playsInline controls={false} className="fixed top-0 left-0 w-1 h-1 opacity-1 pointer-events-none z-[-9999]" />
 
       {/* Header Info */}
       <div className="flex items-center justify-between text-white z-10">
@@ -106,15 +113,15 @@ const CallModal = () => {
 
       {/* Main Video Section */}
       <div className="relative flex-1 my-4 flex items-center justify-center rounded-2xl overflow-hidden bg-zinc-900/80 border border-white/10 shadow-2xl">
-        {/* Remote Video Stream */}
-        {remoteStream && !isVideoOff ? (
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            className="w-full h-full object-cover"
-          />
-        ) : (
+        {/* Remote Video Stream (Kept active in DOM tree for audio decoding even when video is hidden) */}
+        <video
+          ref={remoteVideoRef}
+          autoPlay
+          playsInline
+          className={remoteStream && !isVideoOff ? "w-full h-full object-cover" : "fixed top-0 left-0 w-1 h-1 opacity-1 pointer-events-none z-[-9999]"}
+        />
+
+        {(isVideoOff || !remoteStream) && (
           <div className="flex flex-col items-center gap-3 text-white/80 animate-pulse">
             <UserAvatar
               type="chat"

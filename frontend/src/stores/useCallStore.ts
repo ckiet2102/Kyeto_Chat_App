@@ -120,7 +120,11 @@ export const useCallStore = create<CallStore>((set, get) => ({
   startCall: async (recipientId, conversationId, isVideo, recipientInfo) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
         video: isVideo ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
       });
 
@@ -209,7 +213,11 @@ export const useCallStore = create<CallStore>((set, get) => ({
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
         video: isVideo ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
       });
 
