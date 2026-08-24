@@ -10,9 +10,7 @@ export const useFriendStore = create<FriendState>((set, get) => ({
   searchByUsername: async (username) => {
     try {
       set({ loading: true });
-
       const user = await friendService.searchByUsername(username);
-
       return user;
     } catch (error) {
       console.error("Lỗi xảy ra khi tìm user bằng username", error);
@@ -26,9 +24,10 @@ export const useFriendStore = create<FriendState>((set, get) => ({
       set({ loading: true });
       const resultMessage = await friendService.sendFriendRequest(to, message);
       return resultMessage;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Lỗi xảy ra khi addFriend", error);
-      return "Lỗi xảy ra khi gửi kết bạn. Hãy thử lại";
+      const errorMsg = error?.response?.data?.message || "Lỗi xảy ra khi gửi kết bạn";
+      throw new Error(errorMsg);
     } finally {
       set({ loading: false });
     }
@@ -36,13 +35,9 @@ export const useFriendStore = create<FriendState>((set, get) => ({
   getAllFriendRequests: async () => {
     try {
       set({ loading: true });
-
       const result = await friendService.getAllFriendRequest();
-
       if (!result) return;
-
       const { received, sent } = result;
-
       set({ receivedList: received, sentList: sent });
     } catch (error) {
       console.error("Lỗi xảy ra khi getAllFriendRequests", error);
@@ -54,19 +49,21 @@ export const useFriendStore = create<FriendState>((set, get) => ({
     try {
       set({ loading: true });
       await friendService.acceptRequest(requestId);
-
       set((state) => ({
         receivedList: state.receivedList.filter((r) => r._id !== requestId),
       }));
+      // Automatically refresh friend list
+      await get().getFriends();
     } catch (error) {
       console.error("Lỗi xảy ra khi acceptRequest", error);
+    } finally {
+      set({ loading: false });
     }
   },
   declineRequest: async (requestId) => {
     try {
       set({ loading: true });
       await friendService.declineRequest(requestId);
-
       set((state) => ({
         receivedList: state.receivedList.filter((r) => r._id !== requestId),
       }));

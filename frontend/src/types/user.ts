@@ -4,8 +4,15 @@ export interface User {
   email: string;
   displayName: string;
   avatarUrl?: string;
+  coverUrl?: string;
   bio?: string;
   phone?: string;
+  blockedUsers?: (string | { _id: string; displayName?: string })[];
+  twoFactorEnabled?: boolean;
+  showOnlineStatus?: boolean;
+  activityStatus?: boolean;
+  status?: { emoji?: string; text?: string };
+  subscriptionPlan?: string;
   createdAt?: string;
   updatedAt?: string;
 }

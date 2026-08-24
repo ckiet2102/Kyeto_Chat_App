@@ -6,6 +6,8 @@ export interface AuthState {
   accessToken: string | null;
   user: User | null;
   loading: boolean;
+  temp2FAToken: string | null;
+  requires2FA: boolean;
 
   setAccessToken: (accessToken: string) => void;
   setUser: (user: User) => void;
@@ -16,11 +18,13 @@ export interface AuthState {
     email: string,
     firstName: string,
     lastName: string
-  ) => Promise<void>;
-  signIn: (username: string, password: string) => Promise<void>;
+  ) => Promise<any>;
+  signIn: (username: string, password: string) => Promise<{ success?: boolean; requires2FA?: boolean; error?: string }>;
+  validate2FALogin: (code: string) => Promise<boolean>;
   signOut: () => Promise<void>;
   fetchMe: () => Promise<void>;
   refresh: () => Promise<void>;
+  signInWithGoogle: (credentialOrToken: string) => Promise<boolean>;
 }
 
 export interface ThemeState {
@@ -43,25 +47,66 @@ export interface ChatState {
   convoLoading: boolean;
   messageLoading: boolean;
   loading: boolean;
+  replyingToMessage: Message | null;
+  editingMessage: Message | null;
+  typingUsers: Record<string, { _id: string; displayName: string }[]>;
   reset: () => void;
 
+  setReplyingToMessage: (message: Message | null) => void;
+  setEditingMessage: (message: Message | null) => void;
   setActiveConversation: (id: string | null) => void;
   fetchConversations: () => Promise<void>;
   fetchMessages: (conversationId?: string) => Promise<void>;
   sendDirectMessage: (
     recipientId: string,
     content: string,
-    imgUrl?: string
+    imgUrl?: string,
+    conversationId?: string,
+    parentMessageId?: string,
+    fileUrl?: string,
+    fileName?: string,
+    fileSize?: string,
+    fileType?: string,
+    type?: string,
+    location?: { latitude: number; longitude: number; address?: string },
+    mentions?: string[]
   ) => Promise<void>;
   sendGroupMessage: (
     conversationId: string,
     content: string,
-    imgUrl?: string
+    imgUrl?: string,
+    parentMessageId?: string,
+    fileUrl?: string,
+    fileName?: string,
+    fileSize?: string,
+    fileType?: string,
+    type?: string,
+    location?: { latitude: number; longitude: number; address?: string },
+    mentions?: string[]
   ) => Promise<void>;
+  editMessage: (messageId: string, content: string) => Promise<void>;
+  deleteMessage: (messageId: string) => Promise<void>;
+  toggleReaction: (messageId: string, emoji: string) => Promise<void>;
+  updateMessageInState: (message: Message) => void;
+  removeMessageFromState: (
+    messageId: string,
+    conversationId: string,
+    deletedAt: string
+  ) => void;
+  updateReactionsInState: (
+    messageId: string,
+    conversationId: string,
+    reactions: any[]
+  ) => void;
+  setUserTyping: (
+    conversationId: string,
+    user: { _id: string; displayName: string }
+  ) => void;
+  setUserStopTyping: (conversationId: string, userId: string) => void;
   // add message
   addMessage: (message: Message) => Promise<void>;
   // update convo
-  updateConversation: (conversation: unknown) => void;
+  updateConversation: (conversation: unknown, readerId?: string) => void;
   markAsSeen: () => Promise<void>;
   addConvo: (convo: Conversation) => void;
   createConversation: (
@@ -69,7 +114,12 @@ export interface ChatState {
     name: string,
     memberIds: string[]
   ) => Promise<void>;
+  togglePinMessageInStore: (messageId: string) => void;
+  deleteMessageForSelf: (messageId: string, conversationId: string) => void;
+  deleteConversation: (conversationId: string) => Promise<void>;
+  removeConversationFromState: (conversationId: string) => void;
 }
+
 
 export interface SocketState {
   socket: Socket | null;

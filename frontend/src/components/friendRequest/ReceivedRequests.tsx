@@ -2,14 +2,16 @@ import { useFriendStore } from "@/stores/useFriendStore";
 import FriendRequestItem from "./FriendRequestItem";
 import { Button } from "../ui/button";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 const ReceivedRequests = () => {
+  const { t } = useTranslation();
   const { acceptRequest, declineRequest, loading, receivedList } = useFriendStore();
 
   if (!receivedList || receivedList.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        Bạn chưa có lời mời kết bạn nào.
+        {t("contacts.no_received_requests")}
       </p>
     );
   }
@@ -46,7 +48,7 @@ const ReceivedRequests = () => {
                 onClick={() => handleAccept(req._id)}
                 disabled={loading}
               >
-                Chấp nhận
+                {t("contacts.accept")}
               </Button>
               <Button
                 size="sm"
@@ -54,7 +56,7 @@ const ReceivedRequests = () => {
                 onClick={() => handleDecline(req._id)}
                 disabled={loading}
               >
-                Từ chối
+                {t("contacts.decline")}
               </Button>
             </div>
           }

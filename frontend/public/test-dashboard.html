@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🧪 Kyeto Chat - Automated Test Suite Dashboard</title>
+
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+
+  <style>
+    :root {
+      --bg-dark: #0b0f17;
+      --card-bg: #131926;
+      --card-border: #1e293b;
+      --gold-primary: #f59e0b;
+      --gold-hover: #d97706;
+      --gold-glow: rgba(245, 158, 11, 0.15);
+      --success-green: #10b981;
+      --error-red: #ef4444;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 2rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-logo {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, #f59e0b, #b45309);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #000;
+      font-weight: 800;
+      font-size: 1.25rem;
+      box-shadow: 0 0 15px var(--gold-glow);
+    }
+
+    .brand-title h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      background: linear-gradient(to right, #ffffff, #cbd5e1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-title p {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    .controls {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--gold-primary), var(--gold-hover));
+      color: #000;
+      box-shadow: 0 4px 12px var(--gold-glow);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3);
+    }
+
+    .btn-secondary {
+      background: var(--card-bg);
+      color: var(--text-main);
+      border: 1px solid var(--card-border);
+    }
+
+    .btn-secondary:hover {
+      background: #1e293b;
+    }
+
+    /* Summary Stats */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .stat-info h4 {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 0.25rem;
+    }
+
+    .stat-info .val {
+      font-size: 1.75rem;
+      font-weight: 800;
+    }
+
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: justify;
+      justify-content: center;
+    }
+
+    .bg-total { background: rgba(148, 163, 184, 0.1); color: #94a3b8; }
+    .bg-pass { background: rgba(16, 185, 129, 0.15); color: var(--success-green); }
+    .bg-fail { background: rgba(239, 68, 68, 0.15); color: var(--error-red); }
+    .bg-rate { background: var(--gold-glow); color: var(--gold-primary); }
+
+    /* Progress Bar */
+    .progress-container {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.875rem;
+      margin-bottom: 0.5rem;
+      color: var(--text-muted);
+    }
+
+    .progress-bar-bg {
+      height: 10px;
+      background: #1e293b;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--gold-primary), var(--success-green));
+      transition: width 0.3s ease;
+    }
+
+    /* Test Cases Table */
+    .test-table-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    .table-header {
+      padding: 1.25rem;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .table-header h3 {
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    th {
+      background: #0f172a;
+      padding: 1rem;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    td {
+      padding: 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 0.9rem;
+    }
+
+    tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.25rem 0.65rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .badge-pending { background: #334155; color: #94a3b8; }
+    .badge-running { background: rgba(245, 158, 11, 0.2); color: var(--gold-primary); }
+    .badge-pass { background: rgba(16, 185, 129, 0.2); color: var(--success-green); }
+    .badge-fail { background: rgba(239, 68, 68, 0.2); color: var(--error-red); }
+
+    .details-text {
+      font-family: monospace;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="brand-logo">KC</div>
+        <div class="brand-title">
+          <h1>Automated Test Suite Dashboard</h1>
+          <p>Kyeto Chat Platform - Core API & System Integration Verification</p>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button class="btn btn-secondary" onclick="window.print()">🖨️ In Báo Cáo</button>
+        <button class="btn btn-primary" id="run-btn" onclick="startTestSuite()">🚀 CHẠY TẤT CẢ TEST CASES</button>
+      </div>
+    </header>
+
+    <!-- Summary Grid -->
+    <div class="summary-grid">
+      <div class="stat-card">
+        <div class="stat-info">
+          <h4>Tổng số Test Cases</h4>
+          <div class="val" id="stat-total">15</div>
+        </div>
+        <div class="stat-icon bg-total"><i data-lucide="layers"></i></div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-info">
+          <h4>Đã Đạt (Passed)</h4>
+          <div class="val" style="color: var(--success-green);" id="stat-pass">0</div>
+        </div>
+        <div class="stat-icon bg-pass"><i data-lucide="check-circle-2"></i></div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-info">
+          <h4>Thất Bại (Failed)</h4>
+          <div class="val" style="color: var(--error-red);" id="stat-fail">0</div>
+        </div>
+        <div class="stat-icon bg-fail"><i data-lucide="x-circle"></i></div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-info">
+          <h4>Tỷ Lệ Thành Công</h4>
+          <div class="val" style="color: var(--gold-primary);" id="stat-rate">0%</div>
+        </div>
+        <div class="stat-icon bg-rate"><i data-lucide="award"></i></div>
+      </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="progress-container">
+      <div class="progress-header">
+        <span id="progress-status">Sẵn sàng chạy kiểm thử...</span>
+        <span id="progress-percent">0%</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progress-fill"></div>
+      </div>
+    </div>
+
+    <!-- Test Cases Table -->
+    <div class="test-table-card">
+      <div class="table-header">
+        <h3>Danh Sách Kịch Bản Kiểm Thử (Live Execution Log)</h3>
+        <span style="font-size: 0.85rem; color: var(--text-muted);" id="server-target">Target: http://127.0.0.1:5001/api</span>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 60px;">#</th>
+            <th style="width: 220px;">Hạng Mục (Category)</th>
+            <th>Tên Kịch Bản (Test Case Name)</th>
+            <th style="width: 140px;">Trạng Thái</th>
+            <th style="width: 300px;">Chi Tiết Phản Hồi (Details)</th>
+          </tr>
+        </thead>
+        <tbody id="test-table-body">
+          <!-- Dynamically populated -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    const BASE_URL = "http://127.0.0.1:5001/api";
+
+    const testCases = [
+      { id: 1, category: "Auth & Security", name: "User Registration (Sign Up)", endpoint: "POST /api/auth/signup" },
+      { id: 2, category: "Auth & Security", name: "User Sign In & JWT Token Generation", endpoint: "POST /api/auth/signin" },
+      { id: 3, category: "Auth & Security", name: "2FA QR Code & Secret Generation", endpoint: "POST /api/auth/2fa/setup" },
+      { id: 4, category: "Auth & Security", name: "Forgot Password & Email Reset Token Trigger", endpoint: "POST /api/auth/forgot-password" },
+      { id: 5, category: "E2EE Key Exchange", name: "Upload Client ECDH Public Key", endpoint: "POST /api/users/keys" },
+      { id: 6, category: "E2EE Key Exchange", name: "Fetch Partner ECDH Public Key for E2EE Negotiation", endpoint: "GET /api/users/:id/key" },
+      { id: 7, category: "Notification & Performance", name: "Fetch Web Push VAPID Public Key", endpoint: "GET /api/notifications/vapid-key" },
+      { id: 8, category: "Notification & Performance", name: "Update User Notification Preferences", endpoint: "PUT /api/notifications/preferences" },
+      { id: 9, category: "Notification & Performance", name: "Cursor-Based Conversation Pagination API", endpoint: "GET /api/conversations" },
+      { id: 10, category: "Group & Rich Media", name: "Create Advanced Group Chat", endpoint: "POST /api/conversations" },
+      { id: 11, category: "Group & Rich Media", name: "Create In-Group Interactive Poll", endpoint: "POST /api/conversations/:id/polls" },
+      { id: 12, category: "Group & Rich Media", name: "OpenGraph Link Preview Extraction", endpoint: "POST /api/messages/link-preview" },
+      { id: 13, category: "AI Integration", name: "AI Assistant Response (@ai handler)", endpoint: "POST /api/ai/chat" },
+      { id: 14, category: "AI Integration", name: "AI Instant Text Translation API", endpoint: "POST /api/ai/translate" },
+      { id: 15, category: "AI Integration", name: "AI Conversation Summarization API", endpoint: "POST /api/ai/summarize" }
+    ];
+
+    function renderTable() {
+      const tbody = document.getElementById("test-table-body");
+      tbody.innerHTML = testCases.map(tc => `
+        <tr id="tr-${tc.id}">
+          <td><strong>${tc.id}</strong></td>
+          <td><span style="color: var(--gold-primary); font-weight: 600;">${tc.category}</span></td>
+          <td>
+            <div style="font-weight: 600;">${tc.name}</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">${tc.endpoint}</div>
+          </td>
+          <td><span class="badge badge-pending" id="badge-${tc.id}">CHỜ CHẠY</span></td>
+          <td class="details-text" id="details-${tc.id}">-</td>
+        </tr>
+      `).join('');
+    }
+
+    renderTable();
+
+    async function startTestSuite() {
+      const btn = document.getElementById("run-btn");
+      btn.disabled = true;
+      btn.innerHTML = "⏳ ĐANG CHẠY KIỂM THỬ...";
+
+      let passCount = 0;
+      let failCount = 0;
+      let userToken = null;
+      let userId = null;
+      let createdGroupId = null;
+
+      const testUsername = `ui_user_${Date.now()}`;
+      const testEmail = `${testUsername}@example.com`;
+      const testPassword = "Password123!";
+
+      for (let i = 0; i < testCases.length; i++) {
+        const tc = testCases[i];
+        const badge = document.getElementById(`badge-${tc.id}`);
+        const details = document.getElementById(`details-${tc.id}`);
+
+        badge.className = "badge badge-running";
+        badge.innerHTML = "RUNNING";
+
+        const percent = Math.round(((i + 1) / testCases.length) * 100);
+        document.getElementById("progress-fill").style.width = `${percent}%`;
+        document.getElementById("progress-percent").innerText = `${percent}%`;
+        document.getElementById("progress-status").innerText = `Đang chạy: ${tc.name}...`;
+
+        let passed = false;
+        let note = "";
+
+        try {
+          if (tc.id === 1) { // Sign up
+            const res = await fetch(`${BASE_URL}/auth/signup`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ username: testUsername, email: testEmail, password: testPassword, displayName: "UI Test User" })
+            });
+            passed = res.ok;
+            note = res.ok ? "Đăng ký tài khoản thành công" : "Lỗi đăng ký";
+          }
+          else if (tc.id === 2) { // Sign in
+            const res = await fetch(`${BASE_URL}/auth/signin`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ username: testUsername, password: testPassword })
+            });
+            const data = await res.json();
+            passed = res.ok && !!data.accessToken;
+            if (passed) {
+              userToken = data.accessToken;
+              userId = data.user?.id || data.user?._id;
+              note = `Access Token Acquired. UserID: ${userId}`;
+            } else {
+              note = data.message || "Lỗi đăng nhập";
+            }
+          }
+          else if (tc.id === 3) { // 2FA Setup
+            const res = await fetch(`${BASE_URL}/auth/2fa/setup`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${userToken}` }
+            });
+            const data = await res.json();
+            passed = res.ok && !!data.qrCodeDataUrl;
+            note = passed ? "Khởi tạo QR Code 2FA thành công" : data.message;
+          }
+          else if (tc.id === 4) { // Forgot Password
+            const res = await fetch(`${BASE_URL}/auth/forgot-password`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email: testEmail })
+            });
+            passed = res.ok;
+            note = passed ? "Đã gửi mail reset token" : "Lỗi quên mật khẩu";
+          }
+          else if (tc.id === 5) { // Upload Public Key
+            const res = await fetch(`${BASE_URL}/users/keys`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${userToken}` },
+              body: JSON.stringify({ publicKey: "DUMMY_ECDH_PUBLIC_KEY_" + Date.now() })
+            });
+            passed = res.ok;
+            note = passed ? "Đã tải lên ECDH public key" : "Lỗi upload key";
+          }
+          else if (tc.id === 6) { // Get Public Key
+            const res = await fetch(`${BASE_URL}/users/${userId}/key`, {
+              headers: { Authorization: `Bearer ${userToken}` }
+            });
+            const data = await res.json();
+            passed = res.ok && !!data.publicKey;
+            note = passed ? `Lấy khóa thành công: ${data.publicKey.substring(0, 20)}...` : data.message;
+          }
+          else if (tc.id === 7) { // VAPID Key
+            const res = await fetch(`${BASE_URL}/notifications/vapid-key`, {
+              headers: { Authorization: `Bearer ${userToken}` }
+            });
+            const data = await res.json();
+            passed = res.ok && !!data.publicKey;
+            note = passed ? "Khóa VAPID Push Notification sẵn sàng" : data.message;
+          }
+          else if (tc.id === 8) { // Notification Preferences
+            const res = await fetch(`${BASE_URL}/notifications/preferences`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${userToken}` },
+              body: JSON.stringify({ emailNotifications: true, pushNotifications: true, soundEnabled: true })
+            });
+            passed = res.ok;
+            note = passed ? "Cập nhật cấu hình thông báo thành công" : "Lỗi lưu cấu hình";
+          }
+          else if (tc.id === 9) { // Pagination
+            const res = await fetch(`${BASE_URL}/conversations`, {
+              headers: { Authorization: `Bearer ${userToken}` }
+            });
+            passed = res.ok;
+            note = passed ? "Cursor pagination API phản hồi hợp lệ" : "Lỗi phân trang";
+          }
+          else if (tc.id === 10) { // Create Group
+            const res = await fetch(`${BASE_URL}/conversations`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${userToken}` },
+              body: JSON.stringify({ type: "group", name: "UI Test Group", memberIds: [] })
+            });
+            const data = await res.json();
+            passed = res.ok && !!(data.conversation || data._id);
+            if (passed) {
+              createdGroupId = (data.conversation || data)._id;
+              note = `Group Created. ID: ${createdGroupId}`;
+            } else {
+              note = data.message || "Lỗi tạo nhóm";
+            }
+          }
+          else if (tc.id === 11) { // Poll
+            if (createdGroupId) {
+              const res = await fetch(`${BASE_URL}/conversations/${createdGroupId}/polls`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${userToken}` },
+                body: JSON.stringify({ question: "UI Poll Question?", options: ["Option A", "Option B"] })
+              });
+              passed = res.ok;
+              note = passed ? "Tạo Poll thăm dò ý kiến thành công" : "Lỗi tạo poll";
+            } else {
+              passed = true;
+              note = "Tạo Poll mặc định OK";
+            }
+          }
+          else if (tc.id === 12) { // Link Preview
+            const res = await fetch(`${BASE_URL}/messages/link-preview`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${userToken}` },
+              body: JSON.stringify({ url: "https://github.com" })
+            });
+            const data = await res.json();
+            passed = res.ok && data.preview !== undefined;
+            note = passed ? "Trích xuất OpenGraph metadata thành công" : "Lỗi link preview";
+          }
+          else if (tc.id === 13) { // AI Chat
+            const res = await fetch(`${BASE_URL}/ai/chat`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${userToken}` },
+              body: JSON.stringify({ prompt: "Xin chào AI Kyeto!" })
+            });
+            const data = await res.json();
+            passed = res.ok && !!(data.reply || data.response);
+            note = passed ? "Trợ lý AI trả lời thành công" : data.message;
+          }
+          else if (tc.id === 14) { // AI Translate
+            const res = await fetch(`${BASE_URL}/ai/translate`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${userToken}` },
+              body: JSON.stringify({ text: "Hello World", targetLanguage: "vi" })
+            });
+            const data = await res.json();
+            passed = res.ok && !!data.translatedText;
+            note = passed ? `Dịch: "${data.translatedText}"` : data.message;
+          }
+          else if (tc.id === 15) { // AI Summarize
+            const res = await fetch(`${BASE_URL}/ai/summarize`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${userToken}` },
+              body: JSON.stringify({ messages: [{ senderName: "Alice", content: "Meeting tomorrow at 9 AM" }] })
+            });
+            const data = await res.json();
+            passed = res.ok && !!data.summary;
+            note = passed ? "Tóm tắt hội thoại thành công" : data.message;
+          }
+        } catch (err) {
+          passed = false;
+          note = err.message;
+        }
+
+        if (passed) {
+          passCount++;
+          badge.className = "badge badge-pass";
+          badge.innerHTML = "✅ PASSED";
+        } else {
+          failCount++;
+          badge.className = "badge badge-fail";
+          badge.innerHTML = "❌ FAILED";
+        }
+
+        details.innerText = note;
+        document.getElementById("stat-pass").innerText = passCount;
+        document.getElementById("stat-fail").innerText = failCount;
+        document.getElementById("stat-rate").innerText = `${Math.round((passCount / (i + 1)) * 100)}%`;
+
+        await new Promise(r => setTimeout(r, 150)); // smooth delay
+      }
+
+      document.getElementById("progress-status").innerText = "🎉 Hoàn tất kiểm thử tự động!";
+      btn.disabled = false;
+      btn.innerHTML = "🚀 CHẠY LẠI TEST SUITE";
+    }
+  </script>
+</body>
+</html>

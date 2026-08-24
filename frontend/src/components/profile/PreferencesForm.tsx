@@ -9,25 +9,44 @@ import {
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useThemeStore } from "@/stores/useThemeStore";
-import { useState } from "react";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { userService } from "@/services/userService";
+import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
+import LanguageSelector from "./LanguageSelector";
 
 const PreferencesForm = () => {
+  const { t } = useTranslation();
   const { isDark, toggleTheme } = useThemeStore();
+  const { user, setUser } = useAuthStore();
 
-  //   các bạn cần handle logic setOnlineStatus
-  const [onlineStatus, setOnlineStatus] = useState(false);
+  const showOnlineStatus = user?.showOnlineStatus ?? true;
+
+  const handleToggleOnlineStatus = async (checked: boolean) => {
+    if (!user) return;
+    try {
+      setUser({ ...user, showOnlineStatus: checked });
+      await userService.updateProfile({ showOnlineStatus: checked });
+      toast.success(t("common.success"));
+    } catch (err) {
+      toast.error(t("common.error"));
+    }
+  };
 
   return (
     <Card className="glass-strong border-border/30">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Sun className="h-5 w-5 text-primary" />
-          Tuỳ chỉnh ứng dụng
+          {t("settings.preferences_title")}
         </CardTitle>
-        <CardDescription>Cá nhân hoá trải nghiệm trò chuyện của bạn</CardDescription>
+        <CardDescription>{t("settings.preferences_subtitle")}</CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-6">
+        {/* Language Selector */}
+        <LanguageSelector />
+
         {/* Dark Mode */}
         <div className="flex items-center justify-between">
           <div>
@@ -35,10 +54,10 @@ const PreferencesForm = () => {
               htmlFor="theme-toggle"
               className="text-base font-medium"
             >
-              Chế độ tối
+              {t("settings.dark_mode_title")}
             </Label>
             <p className="text-sm text-muted-foreground">
-              Chuyển đổi giữa giao diện sáng và tối
+              {t("settings.dark_mode_desc")}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -60,16 +79,16 @@ const PreferencesForm = () => {
               htmlFor="online-status"
               className="text-base font-medium"
             >
-              Hiển thị trạng thái online
+              {t("settings.online_status_title")}
             </Label>
             <p className="text-sm text-muted-foreground">
-              Cho phép người khác thấy khi bạn đang online
+              {t("settings.online_status_desc")}
             </p>
           </div>
           <Switch
             id="online-status"
-            checked={onlineStatus}
-            onCheckedChange={setOnlineStatus}
+            checked={showOnlineStatus}
+            onCheckedChange={handleToggleOnlineStatus}
             className="data-[state=checked]:bg-primary-glow"
           />
         </div>

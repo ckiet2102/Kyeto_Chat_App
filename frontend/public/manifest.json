@@ -1,0 +1,16 @@
+{
+  "short_name": "Kyeto Chat",
+  "name": "Kyeto Chat Application",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#09090b",
+  "theme_color": "#eab308",
+  "display": "standalone",
+  "orientation": "portrait"
+}

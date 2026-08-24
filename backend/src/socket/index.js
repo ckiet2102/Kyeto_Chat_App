@@ -4,6 +4,8 @@ import express from "express";
 import { socketAuthMiddleware } from "../middlewares/socketMiddleware.js";
 import { getUserConversationsForSocketIO } from "../controllers/conversationController.js";
 
+import { registerCallHandlers } from "./callHandler.js";
+
 const app = express();
 
 const server = http.createServer(app);
@@ -38,6 +40,25 @@ io.on("connection", async (socket) => {
   });
 
   socket.join(user._id.toString());
+
+  registerCallHandlers(io, socket, user);
+
+  socket.on("typing", ({ conversationId }) => {
+    socket.to(conversationId).emit("user-typing", {
+      conversationId,
+      user: {
+        _id: user._id,
+        displayName: user.displayName,
+      },
+    });
+  });
+
+  socket.on("stop-typing", ({ conversationId }) => {
+    socket.to(conversationId).emit("user-stop-typing", {
+      conversationId,
+      userId: user._id,
+    });
+  });
 
   socket.on("disconnect", () => {
     onlineUsers.delete(user._id);

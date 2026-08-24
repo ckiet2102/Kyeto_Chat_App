@@ -1,11 +1,14 @@
 import type { Dispatch, SetStateAction } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
 import ProfileCard from "./ProfileCard";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import PersonalInfoForm from "./PersonalInfoForm";
 import PreferencesForm from "./PreferencesForm";
 import PrivacySettings from "./PrivacySettings";
+import { LogOut } from "lucide-react";
+import { Button } from "../ui/button";
+import { useTranslation } from "react-i18next";
 
 interface ProfileDialogProps {
   open: boolean;
@@ -13,7 +16,16 @@ interface ProfileDialogProps {
 }
 
 const ProfileDialog = ({ open, setOpen }: ProfileDialogProps) => {
-  const { user } = useAuthStore();
+  const { t } = useTranslation();
+  const { user, signOut } = useAuthStore();
+
+  const handleLogout = () => {
+    if (confirm("Are you sure you want to log out?")) {
+      setOpen(false);
+      signOut();
+    }
+  };
+
   return (
     <Dialog
       open={open}
@@ -23,10 +35,24 @@ const ProfileDialog = ({ open, setOpen }: ProfileDialogProps) => {
         <div className="bg-gradient-glass">
           <div className="max-w-4xl mx-auto p-4">
             {/* heading */}
-            <DialogHeader className="mb-6">
-              <DialogTitle className="text-2xl font-bold text-foreground">
-                Profile & Settings
-              </DialogTitle>
+            <DialogHeader className="mb-6 flex flex-row items-center justify-between">
+              <div>
+                <DialogTitle className="text-2xl font-bold text-foreground">
+                  {t("settings.title")}
+                </DialogTitle>
+                <DialogDescription className="sr-only">
+                  Profile & Settings
+                </DialogDescription>
+              </div>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleLogout}
+                className="gap-2 rounded-xl text-xs font-semibold"
+              >
+                <LogOut className="size-4" />
+                {t("settings.logout")}
+              </Button>
             </DialogHeader>
 
             <ProfileCard user={user} />
@@ -40,19 +66,19 @@ const ProfileDialog = ({ open, setOpen }: ProfileDialogProps) => {
                   value="personal"
                   className="data-[state=active]:glass-strong"
                 >
-                  Tài Khoản
+                  {t("settings.account")}
                 </TabsTrigger>
                 <TabsTrigger
                   value="preferences"
                   className="data-[state=active]:glass-strong"
                 >
-                  Cấu Hình
+                  {t("settings.preferences")}
                 </TabsTrigger>
                 <TabsTrigger
                   value="privacy"
                   className="data-[state=active]:glass-strong"
                 >
-                  Bảo Mật
+                  {t("settings.security")}
                 </TabsTrigger>
               </TabsList>
 

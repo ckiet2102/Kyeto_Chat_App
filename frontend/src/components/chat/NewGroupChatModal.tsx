@@ -3,6 +3,7 @@ import { useState } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -81,6 +82,9 @@ const NewGroupChatModal = () => {
       <DialogContent className="sm:max-w-[425px] border-none">
         <DialogHeader>
           <DialogTitle className="capitalize">tạo nhóm chat mới</DialogTitle>
+          <DialogDescription className="sr-only">
+            Tạo nhóm chat mới và mời các thành viên tham gia
+          </DialogDescription>
         </DialogHeader>
 
         <form

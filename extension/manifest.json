@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Kyeto Chat Notifier",
+  "version": "1.0.0",
+  "description": "Thông báo tin nhắn thời gian thực cho Kyeto Chat",
+  "permissions": ["notifications", "storage"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Kyeto Chat"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}

@@ -27,6 +27,14 @@ const groupSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
+    avatar: {
+      type: String,
+      default: null,
+    },
+    avatarUrl: {
+      type: String,
+      default: null,
+    },
   },
   {
     _id: false,
@@ -85,6 +93,73 @@ const conversationSchema = new mongoose.Schema(
       type: Map,
       of: Number,
       default: {},
+    },
+    admins: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    moderators: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    banList: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    inviteCode: {
+      type: String,
+      sparse: true,
+    },
+    polls: [
+      {
+        question: { type: String, required: true },
+        options: [
+          {
+            text: { type: String, required: true },
+            votes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+          },
+        ],
+        createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        createdAt: { type: Date, default: Date.now },
+        isClosed: { type: Boolean, default: false },
+      },
+    ],
+    settings: {
+      onlyAdminSend: {
+        type: Boolean,
+        default: false,
+      },
+      inviteLink: {
+        type: String,
+        default: null,
+      },
+      isPublic: {
+        type: Boolean,
+        default: false,
+      },
+      theme: {
+        type: String,
+        default: "default",
+      },
+      customColor: {
+        type: String,
+        default: null,
+      },
+      wallpaper: {
+        type: String,
+        default: null,
+      },
+      nicknames: {
+        type: Map,
+        of: String,
+        default: {},
+      },
     },
   },
   {

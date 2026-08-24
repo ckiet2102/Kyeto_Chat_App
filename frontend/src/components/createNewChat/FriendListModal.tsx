@@ -1,5 +1,5 @@
 import { useFriendStore } from "@/stores/useFriendStore";
-import { DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
+import { DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
 import { MessageCircleMore, Users } from "lucide-react";
 import { Card } from "../ui/card";
 import UserAvatar from "../chat/UserAvatar";
@@ -20,6 +20,9 @@ const FriendListModal = () => {
           <MessageCircleMore className="size-5" />
           bắt đầu hội thoại mới
         </DialogTitle>
+        <DialogDescription className="sr-only">
+          Chọn một người bạn từ danh sách để bắt đầu hội thoại mới
+        </DialogDescription>
       </DialogHeader>
 
       {/* friends list */}

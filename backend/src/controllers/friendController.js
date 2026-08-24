@@ -1,14 +1,15 @@
 import Friend from "../models/Friend.js";
 import User from "../models/User.js";
 import FriendRequest from "../models/FriendRequest.js";
+import { getCachedData, setCachedData, delCachedData } from "../config/redis.js";
+import { io } from "../socket/index.js";
 
 export const sendFriendRequest = async (req, res) => {
   try {
     const { to, message } = req.body;
-
     const from = req.user._id;
 
-    if (from === to) {
+    if (from.toString() === to.toString()) {
       return res
         .status(400)
         .json({ message: "Không thể gửi lời mời kết bạn cho chính mình" });
@@ -51,6 +52,20 @@ export const sendFriendRequest = async (req, res) => {
       message,
     });
 
+    // Emit real-time notification to target user
+    if (io) {
+      io.to(to.toString()).emit("new-friend-request", {
+        _id: request._id,
+        from: {
+          _id: req.user._id,
+          displayName: req.user.displayName,
+          username: req.user.username,
+          avatarUrl: req.user.avatarUrl,
+        },
+        message,
+      });
+    }
+
     return res
       .status(201)
       .json({ message: "Gửi lời mời kết bạn thành công", request });
@@ -84,9 +99,24 @@ export const acceptFriendRequest = async (req, res) => {
 
     await FriendRequest.findByIdAndDelete(requestId);
 
+    await delCachedData(`friends:${request.from.toString()}`);
+    await delCachedData(`friends:${request.to.toString()}`);
+
     const from = await User.findById(request.from)
-      .select("_id displayName avatarUrl")
+      .select("_id displayName avatarUrl username")
       .lean();
+
+    // Emit real-time notification to the sender that request was accepted
+    if (io) {
+      io.to(request.from.toString()).emit("friend-request-accepted", {
+        user: {
+          _id: req.user._id,
+          displayName: req.user.displayName,
+          avatarUrl: req.user.avatarUrl,
+          username: req.user.username,
+        },
+      });
+    }
 
     return res.status(200).json({
       message: "Chấp nhận lời mời kết bạn thành công",
@@ -94,6 +124,7 @@ export const acceptFriendRequest = async (req, res) => {
         _id: from?._id,
         displayName: from?.displayName,
         avatarUrl: from?.avatarUrl,
+        username: from?.username,
       },
     });
   } catch (error) {
@@ -130,16 +161,18 @@ export const declineFriendRequest = async (req, res) => {
 
 export const getAllFriends = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user._id.toString();
+    const cacheKey = `friends:${userId}`;
+
+    const cachedFriends = await getCachedData(cacheKey);
+    if (cachedFriends) {
+      return res.status(200).json({ friends: cachedFriends });
+    }
 
     const friendships = await Friend.find({
       $or: [
-        {
-          userA: userId,
-        },
-        {
-          userB: userId,
-        },
+        { userA: userId },
+        { userB: userId },
       ],
     })
       .populate("userA", "_id displayName avatarUrl username")
@@ -147,13 +180,15 @@ export const getAllFriends = async (req, res) => {
       .lean();
 
     if (!friendships.length) {
+      await setCachedData(cacheKey, [], 300);
       return res.status(200).json({ friends: [] });
     }
 
     const friends = friendships.map((f) =>
-      f.userA._id.toString() === userId.toString() ? f.userB : f.userA
+      f.userA._id.toString() === userId ? f.userB : f.userA
     );
 
+    await setCachedData(cacheKey, friends, 300);
     return res.status(200).json({ friends });
   } catch (error) {
     console.error("Lỗi khi lấy danh sách bạn bè", error);

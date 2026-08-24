@@ -19,8 +19,23 @@ const DirectMessageCard = ({ convo }: { convo: Conversation }) => {
   const otherUser = convo.participants.find((p) => p._id !== user._id);
   if (!otherUser) return null;
 
+  const otherUserNickname = (convo.settings as any)?.nicknames?.[otherUser._id] ||
+    (typeof (convo.settings as any)?.nicknames?.get === "function"
+      ? (convo.settings as any).nicknames.get(otherUser._id)
+      : null);
+
+  const displayName = otherUserNickname || otherUser.displayName || "";
+
   const unreadCount = convo.unreadCounts[user._id];
-  const lastMessage = convo.lastMessage?.content ?? "";
+  const lastMessageObj = convo.lastMessage as any;
+  const isVoice = lastMessageObj?.fileType === "voice" || (lastMessageObj?.fileUrl && lastMessageObj?.fileName?.includes("voice"));
+  const lastMessage = isVoice
+    ? "[Tin nhắn thoại]"
+    : lastMessageObj?.imgUrl
+      ? "[Hình ảnh]"
+      : lastMessageObj?.fileUrl
+        ? "[Tệp đính kèm]"
+        : lastMessageObj?.content || "";
 
   const handleSelectConversation = async (id: string) => {
     setActiveConversation(id);
@@ -32,7 +47,7 @@ const DirectMessageCard = ({ convo }: { convo: Conversation }) => {
   return (
     <ChatCard
       convoId={convo._id}
-      name={otherUser.displayName ?? ""}
+      name={displayName}
       timestamp={
         convo.lastMessage?.createdAt
           ? new Date(convo.lastMessage.createdAt)
@@ -41,11 +56,13 @@ const DirectMessageCard = ({ convo }: { convo: Conversation }) => {
       isActive={activeConversationId === convo._id}
       onSelect={handleSelectConversation}
       unreadCount={unreadCount}
+      isArchived={convo.isArchived}
+      isMuted={convo.isMuted}
       leftSection={
         <>
           <UserAvatar
             type="sidebar"
-            name={otherUser.displayName ?? ""}
+            name={displayName}
             avatarUrl={otherUser.avatarUrl ?? undefined}
           />
           <StatusBadge

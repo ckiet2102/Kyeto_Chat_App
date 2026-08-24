@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -11,6 +12,7 @@ import type { User } from "@/types/user";
 import { useFriendStore } from "@/stores/useFriendStore";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { Button } from "../ui/button";
 import SearchForm from "@/components/AddFriendModal/SearchForm";
 import SendFriendRequestForm from "@/components/AddFriendModal/SendFriendRequestForm";
 
@@ -66,8 +68,9 @@ const AddFriendModal = () => {
       toast.success(message);
 
       handleCancel();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Lỗi xảy ra khi gửi request từ form", error);
+      toast.error(error.message || "Không thể gửi lời mời kết bạn");
     }
   });
 
@@ -80,15 +83,23 @@ const AddFriendModal = () => {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <div className="flex justify-center items-center size-5 rounded-full hover:bg-sidebar-accent cursor-pointer z-10">
-          <UserPlus className="size-4" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-9 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground"
+          title="Kết bạn mới (Tìm kiếm username)"
+        >
+          <UserPlus className="size-5" />
           <span className="sr-only">Kết bạn</span>
-        </div>
+        </Button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-[425px] border-none">
         <DialogHeader>
           <DialogTitle>Kết Bạn</DialogTitle>
+          <DialogDescription className="sr-only">
+            Tìm kiếm người dùng theo tên tài khoản để gửi lời mời kết bạn
+          </DialogDescription>
         </DialogHeader>
 
         {!isFound && (

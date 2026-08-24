@@ -1,13 +1,15 @@
 import { useFriendStore } from "@/stores/useFriendStore";
 import FriendRequestItem from "./FriendRequestItem";
+import { useTranslation } from "react-i18next";
 
 const SentRequests = () => {
+  const { t } = useTranslation();
   const { sentList } = useFriendStore();
 
   if (!sentList || sentList.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        Bạn chưa gửi lời mời kết bạn nào.
+        {t("contacts.no_sent_requests")}
       </p>
     );
   }
@@ -21,7 +23,7 @@ const SentRequests = () => {
             requestInfo={req}
             type="sent"
             actions={
-              <p className="text-muted-foreground text-sm">Đang chờ trả lời...</p>
+              <p className="text-muted-foreground text-sm">{t("contacts.pending")}</p>
             }
           />
         ))}
