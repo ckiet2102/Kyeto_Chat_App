@@ -59,8 +59,13 @@ export const signUp = async (req, res) => {
     }
 
     let existingUsernameUser = await User.findOne({ username: username.toLowerCase() });
-    if (existingUsernameUser && existingUsernameUser.emailVerified && existingUsernameUser.email !== email.toLowerCase()) {
-      return res.status(409).json({ message: "Tên đăng nhập này đã tồn tại" });
+    if (existingUsernameUser) {
+      if (existingUsernameUser.emailVerified && existingUsernameUser.email !== email.toLowerCase()) {
+        return res.status(409).json({ message: "Tên đăng nhập này đã được sử dụng. Vui lòng chọn tên đăng nhập khác." });
+      }
+      if (!existingUsernameUser.emailVerified && existingUsernameUser.email !== email.toLowerCase()) {
+        await User.deleteOne({ _id: existingUsernameUser._id });
+      }
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -115,8 +120,13 @@ export const signUp = async (req, res) => {
       email: user.email,
     });
   } catch (error) {
-    console.error("Lỗi khi gọi signUp", error);
-    return res.status(500).json({ message: "Lỗi hệ thống khi đăng ký" });
+    console.error("Lỗi khi gọi signUp:", error);
+    if (error.code === 11000 || error.name === "MongoServerError") {
+      const key = Object.keys(error.keyValue || {})[0] || "";
+      const fieldName = key === "email" ? "Email" : key === "username" ? "Tên đăng nhập" : "Thông tin";
+      return res.status(409).json({ message: `${fieldName} này đã được sử dụng. Vui lòng chọn ${fieldName} khác!` });
+    }
+    return res.status(500).json({ message: "Lỗi hệ thống khi đăng ký: " + (error.message || "Vui lòng thử lại") });
   }
 };
 
