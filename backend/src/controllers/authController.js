@@ -704,28 +704,25 @@ export const testEmailDiagnostic = async (req, res) => {
   }
 
   try {
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: smtpUser,
-        pass: smtpPass,
-      },
-    });
-
-    const info = await transporter.sendMail({
-      from: `"Kyeto Chat Diagnostic" <${smtpUser}>`,
+    const success = await sendEmail({
       to: targetEmail,
       subject: `[Diagnostic Test] Kyeto Chat Email Delivery Test ${Date.now()}`,
       html: `<h3>Kiểm tra gửi email từ Kyeto Backend Render</h3><p>Mã thử nghiệm: <b>${Math.floor(100000 + Math.random() * 900000)}</b></p>`,
     });
 
-    return res.status(200).json({
-      success: true,
-      message: `Đã gửi email thử nghiệm thành công tới ${targetEmail}!`,
-      messageId: info.messageId,
-      accepted: info.accepted,
-      envCheck,
-    });
+    if (success) {
+      return res.status(200).json({
+        success: true,
+        message: `Đã gửi email thử nghiệm thành công tới ${targetEmail}!`,
+        envCheck,
+      });
+    } else {
+      return res.status(500).json({
+        success: false,
+        message: "Hàm sendEmail trả về false (xem logs Render).",
+        envCheck,
+      });
+    }
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -733,8 +730,6 @@ export const testEmailDiagnostic = async (req, res) => {
       errorName: error.name,
       errorMessage: error.message,
       errorCode: error.code,
-      command: error.command,
-      response: error.response,
       envCheck,
     });
   }
