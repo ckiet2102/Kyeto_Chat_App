@@ -685,7 +685,10 @@ export const testEmailDiagnostic = async (req, res) => {
   const smtpHost = (process.env.SMTP_HOST || process.env.EMAIL_HOST || "smtp.gmail.com").trim();
   const smtpPort = Number(process.env.SMTP_PORT || process.env.EMAIL_PORT || 587);
 
+  const resendKey = (process.env.RESEND_API_KEY || "").trim();
   const envCheck = {
+    resendConfigured: !!resendKey,
+    resendPreview: resendKey ? `${resendKey.slice(0, 7)}***` : "NOT_CONFIGURED",
     smtpUserConfigured: !!smtpUser,
     smtpUserLength: smtpUser.length,
     smtpUserPreview: smtpUser ? `${smtpUser.slice(0, 4)}***${smtpUser.slice(smtpUser.indexOf("@"))}` : "NONE",
