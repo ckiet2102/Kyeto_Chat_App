@@ -18,12 +18,14 @@ import {
   handleOAuthSuccess,
   generateTokensAndSession,
   verifyGoogleToken,
+  testEmailDiagnostic,
 } from "../controllers/authController.js";
 import { loginRateLimiter } from "../middlewares/rateLimitMiddleware.js";
 import { protectRoute } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
+router.get("/test-email", testEmailDiagnostic);
 router.post("/signup", signUp);
 router.post("/verify-registration-otp", verifyRegistrationOTP);
 router.post("/resend-registration-otp", resendRegistrationOTP);

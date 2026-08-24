@@ -676,3 +676,66 @@ export const verifyGoogleToken = async (req, res) => {
     return res.status(401).json({ message: "Xác thực tài khoản Google thất bại: " + error.message });
   }
 };
+
+// Diagnostic Endpoint for Email Delivery Testing
+export const testEmailDiagnostic = async (req, res) => {
+  const targetEmail = req.query.to || req.body.email || "ckiet2102@gmail.com";
+  const smtpUser = (process.env.SMTP_USER || process.env.EMAIL_USER || "").trim();
+  const smtpPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || "").trim();
+  const smtpHost = (process.env.SMTP_HOST || process.env.EMAIL_HOST || "smtp.gmail.com").trim();
+  const smtpPort = Number(process.env.SMTP_PORT || process.env.EMAIL_PORT || 587);
+
+  const envCheck = {
+    smtpUserConfigured: !!smtpUser,
+    smtpUserLength: smtpUser.length,
+    smtpUserPreview: smtpUser ? `${smtpUser.slice(0, 4)}***${smtpUser.slice(smtpUser.indexOf("@"))}` : "NONE",
+    smtpPassConfigured: !!smtpPass,
+    smtpPassLength: smtpPass.length,
+    smtpHost,
+    smtpPort,
+  };
+
+  if (!smtpUser || !smtpPass) {
+    return res.status(400).json({
+      success: false,
+      message: "Thiếu cấu hình SMTP_USER hoặc SMTP_PASS trên Render Environment Variables!",
+      envCheck,
+    });
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: smtpUser,
+        pass: smtpPass,
+      },
+    });
+
+    const info = await transporter.sendMail({
+      from: `"Kyeto Chat Diagnostic" <${smtpUser}>`,
+      to: targetEmail,
+      subject: `[Diagnostic Test] Kyeto Chat Email Delivery Test ${Date.now()}`,
+      html: `<h3>Kiểm tra gửi email từ Kyeto Backend Render</h3><p>Mã thử nghiệm: <b>${Math.floor(100000 + Math.random() * 900000)}</b></p>`,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Đã gửi email thử nghiệm thành công tới ${targetEmail}!`,
+      messageId: info.messageId,
+      accepted: info.accepted,
+      envCheck,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Gửi email thất bại!",
+      errorName: error.name,
+      errorMessage: error.message,
+      errorCode: error.code,
+      command: error.command,
+      response: error.response,
+      envCheck,
+    });
+  }
+};
