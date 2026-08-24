@@ -35,9 +35,16 @@ export const sendEmail = async ({ to, subject, html, text }) => {
         return { success: true, provider: "Brevo", messageId: data.messageId };
       } else {
         console.error("[Email Service Brevo Error]:", data);
+        return {
+          success: false,
+          provider: "Brevo",
+          error: data.message || data.code || JSON.stringify(data),
+          details: data,
+        };
       }
     } catch (apiErr) {
       console.error("[Email Service Brevo Exception]:", apiErr.message);
+      return { success: false, provider: "Brevo", error: apiErr.message };
     }
   }
 
