@@ -34,9 +34,16 @@ export const sendEmail = async ({ to, subject, html, text }) => {
         return { success: true, provider: "Resend", id: data.id };
       } else {
         console.error("[Email Service Resend Error]:", data);
+        return {
+          success: false,
+          provider: "Resend",
+          error: data.message || data.name || JSON.stringify(data),
+          details: data,
+        };
       }
     } catch (apiErr) {
       console.error("[Email Service Resend Exception]:", apiErr.message);
+      return { success: false, provider: "Resend", error: apiErr.message };
     }
   }
 
