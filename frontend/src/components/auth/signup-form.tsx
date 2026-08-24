@@ -69,8 +69,11 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"div">)
     resolver: zodResolver(signUpSchema),
   });
 
+  const [authError, setAuthError] = useState<string | null>(null);
+
   // Step 1: Submit Account Information Form
   const onSubmit = async (data: SignUpFormValues) => {
+    setAuthError(null);
     const { firstname, lastname, username, email, password } = data;
 
     const res = await signUp(username, password, email, firstname, lastname);
@@ -82,6 +85,8 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"div">)
       } else {
         navigate("/signin");
       }
+    } else if (res?.error) {
+      setAuthError(res.error);
     }
   };
 
@@ -187,6 +192,12 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"div">)
                     Chào mừng bạn! Hãy đăng ký để bắt đầu!
                   </p>
                 </div>
+
+                {authError && (
+                  <div className="p-3.5 rounded-xl bg-destructive/15 border border-destructive/30 text-destructive text-xs font-semibold text-center animate-in fade-in duration-200">
+                    ⚠️ {authError}
+                  </div>
+                )}
 
                 {/* họ & tên */}
                 <div className="grid grid-cols-2 gap-3">
