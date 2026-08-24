@@ -685,8 +685,11 @@ export const testEmailDiagnostic = async (req, res) => {
   const smtpHost = (process.env.SMTP_HOST || process.env.EMAIL_HOST || "smtp.gmail.com").trim();
   const smtpPort = Number(process.env.SMTP_PORT || process.env.EMAIL_PORT || 587);
 
+  const brevoKey = (process.env.BREVO_API_KEY || "").trim();
   const resendKey = (process.env.RESEND_API_KEY || "").trim();
   const envCheck = {
+    brevoConfigured: !!brevoKey,
+    brevoPreview: brevoKey ? `${brevoKey.slice(0, 10)}***` : "NOT_CONFIGURED",
     resendConfigured: !!resendKey,
     resendPreview: resendKey ? `${resendKey.slice(0, 7)}***` : "NOT_CONFIGURED",
     smtpUserConfigured: !!smtpUser,
