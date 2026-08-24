@@ -330,12 +330,7 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"div">)
                     variant="outline"
                     className="w-full rounded-xl border-amber-500/20 hover:bg-amber-500/10 cursor-pointer text-xs font-semibold h-10"
                     onClick={() => {
-                      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-                      if (!clientId || clientId.includes("demo")) {
-                        window.location.href = `${getApiUrl()}/auth/google`;
-                      } else {
-                        handleGoogleLogin();
-                      }
+                      window.location.href = `${getApiUrl()}/auth/google`;
                     }}
                   >
                     <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
