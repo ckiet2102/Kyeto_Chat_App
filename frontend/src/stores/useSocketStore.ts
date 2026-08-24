@@ -11,7 +11,10 @@ import { toast } from "sonner";
 import { NotificationService } from "@/services/notificationService";
 import { PushNotificationService } from "@/services/pushNotificationService";
 
-const baseURL = import.meta.env.VITE_SOCKET_URL || "https://kyeto-backend.onrender.com/";
+const rawSocketUrl = (import.meta.env.VITE_SOCKET_URL || "").trim();
+const baseURL = (rawSocketUrl && rawSocketUrl.length > 10 && rawSocketUrl.startsWith("http"))
+  ? rawSocketUrl
+  : "https://kyeto-backend.onrender.com";
 
 export const useSocketStore = create<SocketState>((set, get) => ({
   socket: null,
@@ -24,7 +27,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
 
     const socket: Socket = io(baseURL, {
       auth: { token: accessToken },
-      transports: ["websocket"],
+      transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionAttempts: 15,
       reconnectionDelay: 1000,
