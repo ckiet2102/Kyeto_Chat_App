@@ -26,6 +26,14 @@ export function SigninForm({ className, ...props }: React.ComponentProps<"div">)
   const [legalModalType, setLegalModalType] = useState<"terms" | "privacy" | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
 
+  const getApiUrl = () => {
+    const envUrl = import.meta.env.VITE_API_URL;
+    if (envUrl) {
+      return envUrl.endsWith('/') ? envUrl.slice(0, -1) : envUrl;
+    }
+    return "https://kyeto-backend.onrender.com/api";
+  };
+
   const handleGoogleLogin = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
       const token = tokenResponse.access_token;
@@ -35,14 +43,8 @@ export function SigninForm({ className, ...props }: React.ComponentProps<"div">)
       }
     },
     onError: (err) => {
-      console.warn("Google popup error:", err);
-      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-      if (!clientId || clientId.includes("demo")) {
-        toast.error("Vui lòng thêm VITE_GOOGLE_CLIENT_ID thực tế vào file frontend/.env!");
-      } else {
-        toast.error("Không thể kết nối Google Sign-In. Đang chuyển hướng...");
-        window.location.href = "http://localhost:5001/api/auth/google";
-      }
+      console.warn("Google popup error, falling back to Passport OAuth:", err);
+      window.location.href = `${getApiUrl()}/auth/google`;
     },
   });
   const {
@@ -189,7 +191,14 @@ export function SigninForm({ className, ...props }: React.ComponentProps<"div">)
                   type="button"
                   variant="outline"
                   className="w-full rounded-xl border-amber-500/20 hover:bg-amber-500/10 cursor-pointer text-xs font-semibold h-10"
-                  onClick={() => handleGoogleLogin()}
+                  onClick={() => {
+                    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+                    if (!clientId || clientId.includes("demo")) {
+                      window.location.href = `${getApiUrl()}/auth/google`;
+                    } else {
+                      handleGoogleLogin();
+                    }
+                  }}
                 >
                   <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
                     <path
@@ -217,7 +226,7 @@ export function SigninForm({ className, ...props }: React.ComponentProps<"div">)
                   variant="outline"
                   className="w-full rounded-xl border-amber-500/20 hover:bg-amber-500/10 cursor-pointer text-xs font-semibold h-10"
                   onClick={() => {
-                    window.location.href = "http://localhost:5001/api/auth/github";
+                    window.location.href = `${getApiUrl()}/auth/github`;
                   }}
                 >
                   <svg className="mr-2 h-4 w-4 fill-current" viewBox="0 0 24 24">
