@@ -704,22 +704,24 @@ export const testEmailDiagnostic = async (req, res) => {
   }
 
   try {
-    const success = await sendEmail({
+    const resObj = await sendEmail({
       to: targetEmail,
       subject: `[Diagnostic Test] Kyeto Chat Email Delivery Test ${Date.now()}`,
       html: `<h3>Kiểm tra gửi email từ Kyeto Backend Render</h3><p>Mã thử nghiệm: <b>${Math.floor(100000 + Math.random() * 900000)}</b></p>`,
     });
 
-    if (success) {
+    if (resObj && resObj.success) {
       return res.status(200).json({
         success: true,
         message: `Đã gửi email thử nghiệm thành công tới ${targetEmail}!`,
+        details: resObj,
         envCheck,
       });
     } else {
       return res.status(500).json({
         success: false,
-        message: "Hàm sendEmail trả về false (xem logs Render).",
+        message: "Gửi mail thất bại!",
+        details: resObj,
         envCheck,
       });
     }
