@@ -59,9 +59,13 @@ const CallModal = () => {
     }
     if (remoteAudioRef.current && remoteStream) {
       remoteAudioRef.current.srcObject = remoteStream;
-      remoteAudioRef.current.play().catch((err) => {
-        console.warn("[WebRTC Audio] Remote audio autoplay error:", err);
-      });
+      const playAudio = () => {
+        remoteAudioRef.current?.play().catch((err) => {
+          console.warn("[WebRTC Audio] Remote audio autoplay error:", err);
+        });
+      };
+      playAudio();
+      remoteStream.onaddtrack = () => playAudio();
     }
   }, [remoteStream]);
 

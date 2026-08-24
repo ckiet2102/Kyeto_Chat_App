@@ -355,16 +355,25 @@
 }
 
 @layer base {
+  html, body {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    height: 100%;
+    height: 100dvh;
+  }
   * {
     @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
+    -webkit-overflow-scrolling: touch;
   }
   /* Prevent iOS Safari auto-zoom on input focus */
   @media screen and (max-width: 768px) {
     input, select, textarea {
       font-size: 16px !important;
+      touch-action: manipulation;
     }
   }
 }

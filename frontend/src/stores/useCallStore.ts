@@ -36,6 +36,7 @@ interface CallStore {
   isScreenSharing: boolean;
   incomingOffer: RTCSessionDescriptionInit | null;
   peerConnection: RTCPeerConnection | null;
+  pendingCandidates: RTCIceCandidateInit[];
   targetId: string | null;
   connectedAt: number | null;
   callDuration: number;
@@ -59,6 +60,7 @@ interface CallStore {
   endCall: () => void;
   handleCallAccepted: (data: { callee: CallUser; answer: RTCSessionDescriptionInit }) => Promise<void>;
   handleIceCandidate: (candidate: RTCIceCandidateInit) => Promise<void>;
+  processPendingIceCandidates: () => Promise<void>;
   handleCallRejected: () => void;
   handleCallEnded: () => void;
   toggleMute: () => void;
@@ -83,6 +85,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
   isScreenSharing: false,
   incomingOffer: null,
   peerConnection: null,
+  pendingCandidates: [],
   targetId: null,
   connectedAt: null,
   callDuration: 0,
@@ -234,6 +237,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
       };
 
       await pc.setRemoteDescription(new RTCSessionDescription(incomingOffer));
+      await get().processPendingIceCandidates();
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
@@ -264,6 +268,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
     const { peerConnection } = get();
     if (peerConnection) {
       await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+      await get().processPendingIceCandidates();
       set({
         callState: "connected",
         callee,
@@ -274,13 +279,32 @@ export const useCallStore = create<CallStore>((set, get) => ({
   },
 
   handleIceCandidate: async (candidate) => {
-    const { peerConnection } = get();
-    if (peerConnection && candidate) {
+    if (!candidate) return;
+    const { peerConnection, pendingCandidates } = get();
+    if (peerConnection && peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
       try {
         await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
       } catch (e) {
         console.error("Lỗi thêm ICE candidate:", e);
       }
+    } else {
+      console.log("[WebRTC] Lưu ICE candidate vào hàng đợi vì chưa có remoteDescription...");
+      set({ pendingCandidates: [...pendingCandidates, candidate] });
+    }
+  },
+
+  processPendingIceCandidates: async () => {
+    const { peerConnection, pendingCandidates } = get();
+    if (peerConnection && peerConnection.remoteDescription && pendingCandidates.length > 0) {
+      console.log(`[WebRTC] Đang xử lý ${pendingCandidates.length} ICE candidates trong hàng đợi...`);
+      for (const candidate of pendingCandidates) {
+        try {
+          await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (e) {
+          console.error("Lỗi thêm ICE candidate từ hàng đợi:", e);
+        }
+      }
+      set({ pendingCandidates: [] });
     }
   },
 
@@ -436,6 +460,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
       isScreenSharing: false,
       incomingOffer: null,
       peerConnection: null,
+      pendingCandidates: [],
       targetId: null,
       connectedAt: null,
       callDuration: 0,
