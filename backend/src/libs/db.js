@@ -5,13 +5,29 @@ import fs from "fs";
 let mongoServerInstance = null;
 
 export const connectDB = async () => {
+  const connStr = process.env.MONGODB_CONNECTIONSTRING || process.env.MONGO_URI;
+
+  if (connStr) {
+    try {
+      console.log("⏳ Đang kết nối tới MongoDB Atlas...");
+      await mongoose.connect(connStr, {
+        serverSelectionTimeoutMS: 15000,
+        connectTimeoutMS: 15000,
+      });
+      console.log("🟢 Liên kết CSDL MongoDB Atlas thành công!");
+      return;
+    } catch (error) {
+      console.error("❌ Lỗi kết nối MongoDB Atlas:", error.message);
+    }
+  }
+
+  // Chạy Local Fallback trong môi trường Dev/Test khi không có MONGODB_CONNECTIONSTRING
   try {
-    // Thử kết nối DB trong .env nếu khả dụng
-    const connStr = process.env.MONGODB_CONNECTIONSTRING || "mongodb://127.0.0.1:27017/moji_chat";
-    await mongoose.connect(connStr, { serverSelectionTimeoutMS: 2000 });
-    console.log("🟢 Liên kết CSDL MongoDB thành công!");
+    const localUri = "mongodb://127.0.0.1:27017/moji_chat";
+    await mongoose.connect(localUri, { serverSelectionTimeoutMS: 3000 });
+    console.log("🟢 Liên kết CSDL MongoDB Local thành công!");
   } catch (error) {
-    console.log("⚠️ Khởi động CSDL MongoDB Persistence Disk Storage...");
+    console.log("⚠️ Khởi động CSDL MongoDB Memory Server...");
     try {
       if (mongoose.connection.readyState !== 0) {
         await mongoose.disconnect();
@@ -42,9 +58,9 @@ export const connectDB = async () => {
 
       const mongoUri = mongoServerInstance.getUri();
       await mongoose.connect(mongoUri, { dbName: "moji_chat" });
-      console.log("✅ CSDL MongoDB Persistent Storage sẵn sàng tại cổng 5001!");
+      console.log("✅ CSDL MongoDB Persistent Storage sẵn sàng!");
     } catch (memErr) {
-      console.error("❌ Lỗi khởi tạo CSDL:", memErr.message);
+      console.error("❌ Lỗi khởi tạo CSDL Local:", memErr.message);
     }
   }
 };
