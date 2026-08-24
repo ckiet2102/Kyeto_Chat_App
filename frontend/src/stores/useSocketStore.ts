@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { NotificationService } from "@/services/notificationService";
 import { PushNotificationService } from "@/services/pushNotificationService";
 
-const baseURL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5001/";
+const baseURL = import.meta.env.VITE_SOCKET_URL || "https://kyeto-backend.onrender.com/";
 
 export const useSocketStore = create<SocketState>((set, get) => ({
   socket: null,
