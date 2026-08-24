@@ -2,12 +2,79 @@ import nodemailer from "nodemailer";
 import dns from "dns";
 
 export const sendEmail = async ({ to, subject, html, text }) => {
+  const targetEmail = to.trim();
+  const resendApiKey = (process.env.RESEND_API_KEY || "").trim();
+  const brevoApiKey = (process.env.BREVO_API_KEY || "").trim();
   const smtpUser = (process.env.SMTP_USER || process.env.EMAIL_USER || "").trim();
   const smtpPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || "").trim();
   const smtpHost = (process.env.SMTP_HOST || process.env.EMAIL_HOST || "smtp.gmail.com").trim();
 
+  // 1. HTTP REST API: Resend (Best for Cloud Hosting like Render/Vercel)
+  if (resendApiKey) {
+    try {
+      console.log(`[Email Service] Sending via Resend HTTP API to ${targetEmail}...`);
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: process.env.EMAIL_FROM || "Kyeto Chat <onboarding@resend.dev>",
+          to: [targetEmail],
+          subject,
+          html,
+          text: text || (html ? html.replace(/<[^>]*>?/gm, "") : ""),
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        console.log(`[Email Service Success] Resend delivered to ${targetEmail}, ID: ${data.id}`);
+        return { success: true, provider: "Resend", id: data.id };
+      } else {
+        console.error("[Email Service Resend Error]:", data);
+      }
+    } catch (apiErr) {
+      console.error("[Email Service Resend Exception]:", apiErr.message);
+    }
+  }
+
+  // 2. HTTP REST API: Brevo (Sendinblue)
+  if (brevoApiKey) {
+    try {
+      console.log(`[Email Service] Sending via Brevo HTTP API to ${targetEmail}...`);
+      const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "api-key": brevoApiKey,
+          "Content-Type": "application/json",
+          accept: "application/json",
+        },
+        body: JSON.stringify({
+          sender: { name: "Kyeto Chat", email: smtpUser || "noreply@kyeto.chat" },
+          to: [{ email: targetEmail }],
+          subject,
+          htmlContent: html,
+          textContent: text || (html ? html.replace(/<[^>]*>?/gm, "") : ""),
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        console.log(`[Email Service Success] Brevo delivered to ${targetEmail}, MessageId: ${data.messageId}`);
+        return { success: true, provider: "Brevo", messageId: data.messageId };
+      } else {
+        console.error("[Email Service Brevo Error]:", data);
+      }
+    } catch (apiErr) {
+      console.error("[Email Service Brevo Exception]:", apiErr.message);
+    }
+  }
+
+  // 3. Standard Nodemailer SMTP
   if (!smtpUser || !smtpPass) {
-    console.log(`[Email Service Bypass - Missing Credentials] Target: ${to} | Subject: ${subject}`);
+    console.log(`[Email Service Bypass - Missing Credentials] Target: ${targetEmail} | Subject: ${subject}`);
     return { success: true, bypassed: true };
   }
 
@@ -19,7 +86,7 @@ export const sendEmail = async ({ to, subject, html, text }) => {
       try {
         const addresses = await dns.promises.resolve4("smtp.gmail.com");
         if (addresses && addresses.length > 0) {
-          resolvedHost = addresses[0]; // e.g. "142.250.141.108"
+          resolvedHost = addresses[0];
         }
       } catch (dnsErr) {
         console.warn("[Email Service] IPv4 DNS resolve fallback:", dnsErr.message);
@@ -38,30 +105,34 @@ export const sendEmail = async ({ to, subject, html, text }) => {
         user: smtpUser,
         pass: smtpPass,
       },
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 10000,
+      connectionTimeout: 8000,
+      greetingTimeout: 8000,
+      socketTimeout: 8000,
     });
 
-    console.log(`[Email Service] Attempting IPv4 direct send to ${to} via ${smtpUser} (${resolvedHost}:465)...`);
+    console.log(`[Email Service] Attempting SMTP send to ${targetEmail} via ${smtpUser} (${resolvedHost}:465)...`);
 
     const info = await Promise.race([
       transporter.sendMail({
         from: process.env.EMAIL_FROM || `"Kyeto Chat" <${smtpUser}>`,
-        to: to.trim(),
+        to: targetEmail,
         subject,
         text: text || (html ? html.replace(/<[^>]*>?/gm, "") : ""),
         html,
       }),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Email send operation timed out after 15 seconds")), 15000)
+        setTimeout(() => reject(new Error("SMTP send connection timed out after 8s")), 8000)
       ),
     ]);
 
-    console.log(`[Email Service Success] Delivered email to ${to}. MessageId: ${info.messageId}`);
+    console.log(`[Email Service Success] Delivered email to ${targetEmail}. MessageId: ${info.messageId}`);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error(`[Email Service Error] Failed to send email to ${to}:`, error.message || error);
-    return { success: false, error: error.message || String(error) };
+    console.error(`[Email Service Error] Failed to send email to ${targetEmail}:`, error.message || error);
+    return {
+      success: false,
+      error: error.message || String(error),
+      note: "On Cloud hosting like Render Free Tier, direct TCP SMTP ports (465/587) are often blocked by host cloud firewalls. Consider adding RESEND_API_KEY or BREVO_API_KEY in Render Environment Variables for 100% instant HTTPS delivery.",
+    };
   }
 };
