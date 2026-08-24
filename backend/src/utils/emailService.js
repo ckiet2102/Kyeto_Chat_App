@@ -3,13 +3,45 @@ import dns from "dns";
 
 export const sendEmail = async ({ to, subject, html, text }) => {
   const targetEmail = to.trim();
-  const resendApiKey = (process.env.RESEND_API_KEY || "").trim();
   const brevoApiKey = (process.env.BREVO_API_KEY || "").trim();
+  const resendApiKey = (process.env.RESEND_API_KEY || "").trim();
   const smtpUser = (process.env.SMTP_USER || process.env.EMAIL_USER || "").trim();
   const smtpPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || "").trim();
   const smtpHost = (process.env.SMTP_HOST || process.env.EMAIL_HOST || "smtp.gmail.com").trim();
 
-  // 1. HTTP REST API: Resend (Best for Cloud Hosting like Render/Vercel)
+  // 1. HTTP REST API: Brevo (Sendinblue) - Allows sending to ANY recipient email address
+  if (brevoApiKey) {
+    try {
+      console.log(`[Email Service] Sending via Brevo HTTP API to ${targetEmail}...`);
+      const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "api-key": brevoApiKey,
+          "Content-Type": "application/json",
+          accept: "application/json",
+        },
+        body: JSON.stringify({
+          sender: { name: "Kyeto Chat", email: "noreply@kyeto.chat" },
+          to: [{ email: targetEmail }],
+          subject,
+          htmlContent: html,
+          textContent: text || (html ? html.replace(/<[^>]*>?/gm, "") : ""),
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        console.log(`[Email Service Success] Brevo delivered to ${targetEmail}, MessageId: ${data.messageId}`);
+        return { success: true, provider: "Brevo", messageId: data.messageId };
+      } else {
+        console.error("[Email Service Brevo Error]:", data);
+      }
+    } catch (apiErr) {
+      console.error("[Email Service Brevo Exception]:", apiErr.message);
+    }
+  }
+
+  // 2. HTTP REST API: Resend (Best for Cloud Hosting like Render/Vercel)
   if (resendApiKey) {
     try {
       console.log(`[Email Service] Sending via Resend HTTP API to ${targetEmail}...`);
@@ -34,48 +66,17 @@ export const sendEmail = async ({ to, subject, html, text }) => {
         return { success: true, provider: "Resend", id: data.id };
       } else {
         console.error("[Email Service Resend Error]:", data);
-        return {
-          success: false,
-          provider: "Resend",
-          error: data.message || data.name || JSON.stringify(data),
-          details: data,
-        };
+        if (!brevoApiKey) {
+          return {
+            success: false,
+            provider: "Resend",
+            error: data.message || data.name || JSON.stringify(data),
+            details: data,
+          };
+        }
       }
     } catch (apiErr) {
       console.error("[Email Service Resend Exception]:", apiErr.message);
-      return { success: false, provider: "Resend", error: apiErr.message };
-    }
-  }
-
-  // 2. HTTP REST API: Brevo (Sendinblue)
-  if (brevoApiKey) {
-    try {
-      console.log(`[Email Service] Sending via Brevo HTTP API to ${targetEmail}...`);
-      const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-        method: "POST",
-        headers: {
-          "api-key": brevoApiKey,
-          "Content-Type": "application/json",
-          accept: "application/json",
-        },
-        body: JSON.stringify({
-          sender: { name: "Kyeto Chat", email: smtpUser || "noreply@kyeto.chat" },
-          to: [{ email: targetEmail }],
-          subject,
-          htmlContent: html,
-          textContent: text || (html ? html.replace(/<[^>]*>?/gm, "") : ""),
-        }),
-      });
-
-      const data = await response.json();
-      if (response.ok) {
-        console.log(`[Email Service Success] Brevo delivered to ${targetEmail}, MessageId: ${data.messageId}`);
-        return { success: true, provider: "Brevo", messageId: data.messageId };
-      } else {
-        console.error("[Email Service Brevo Error]:", data);
-      }
-    } catch (apiErr) {
-      console.error("[Email Service Brevo Exception]:", apiErr.message);
     }
   }
 
