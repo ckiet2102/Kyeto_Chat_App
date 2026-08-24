@@ -5,7 +5,7 @@ import fs from "fs";
 let mongoServerInstance = null;
 
 export const connectDB = async () => {
-  const connStr = process.env.MONGODB_CONNECTIONSTRING || process.env.MONGO_URI;
+  const connStr = process.env.MONGODB_CONNECTIONSTRING || process.env.MONGO_URI || process.env.MONGODB_URI;
 
   if (connStr) {
     try {
