@@ -52,20 +52,17 @@ export const signUp = async (req, res) => {
 
     const displayName = `${lastName} ${firstName}`.trim() || username;
 
-    let existingEmailUser = await User.findOne({ email: email.toLowerCase() });
+    const [existingEmailUser, existingUsernameUser] = await Promise.all([
+      User.findOne({ email: email.toLowerCase() }).maxTimeMS(5000),
+      User.findOne({ username: username.toLowerCase() }).maxTimeMS(5000),
+    ]);
 
     if (existingEmailUser && existingEmailUser.emailVerified) {
-      return res.status(409).json({ message: "Email này đã được sử dụng" });
+      return res.status(409).json({ message: "Email này đã được sử dụng. Vui lòng đăng nhập hoặc dùng email khác." });
     }
 
-    let existingUsernameUser = await User.findOne({ username: username.toLowerCase() });
-    if (existingUsernameUser) {
-      if (existingUsernameUser.emailVerified && existingUsernameUser.email !== email.toLowerCase()) {
-        return res.status(409).json({ message: "Tên đăng nhập này đã được sử dụng. Vui lòng chọn tên đăng nhập khác." });
-      }
-      if (!existingUsernameUser.emailVerified && existingUsernameUser.email !== email.toLowerCase()) {
-        await User.deleteOne({ _id: existingUsernameUser._id });
-      }
+    if (existingUsernameUser && existingUsernameUser.emailVerified && existingUsernameUser.email !== email.toLowerCase()) {
+      return res.status(409).json({ message: "Tên đăng nhập này đã được sử dụng. Vui lòng chọn tên đăng nhập khác." });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -82,7 +79,7 @@ export const signUp = async (req, res) => {
       existingEmailUser.signupOtpExpires = Date.now() + 10 * 60 * 1000;
       user = await existingEmailUser.save();
     } else {
-      user = await User.create({
+      user = await User.create([{
         username: username.toLowerCase(),
         hashedPassword,
         email: email.toLowerCase(),
@@ -91,7 +88,7 @@ export const signUp = async (req, res) => {
         signupOtp,
         signupOtpExpires: Date.now() + 10 * 60 * 1000,
         emailVerified: false,
-      });
+      }]).then(docs => docs[0]);
     }
 
     console.log(`[Sign Up OTP for ${user.email}]: ${signupOtp}`);
