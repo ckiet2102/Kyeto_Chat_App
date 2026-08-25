@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { Play, Pause } from "lucide-react";
 import { Button } from "../ui/button";
+import { fixFileUrl } from "@/lib/urlFix";
 
 interface VoiceMessagePlayerProps {
   src: string;
@@ -20,6 +21,7 @@ export default function VoiceMessagePlayer({
   initialDuration = 0,
   customColor,
 }: VoiceMessagePlayerProps) {
+  const fixedSrc = fixFileUrl(src);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState<number>(initialDuration);
@@ -51,6 +53,9 @@ export default function VoiceMessagePlayer({
   const handleTimeUpdate = () => {
     if (audioRef.current) {
       setCurrentTime(audioRef.current.currentTime);
+      if (isFinite(audioRef.current.duration) && audioRef.current.duration > 0) {
+        setDuration(audioRef.current.duration);
+      }
     }
   };
 
@@ -64,6 +69,9 @@ export default function VoiceMessagePlayer({
   const handleEnded = () => {
     setIsPlaying(false);
     setCurrentTime(0);
+    if (audioRef.current && isFinite(audioRef.current.duration) && audioRef.current.duration > 0) {
+      setDuration(audioRef.current.duration);
+    }
   };
 
   const handleError = (e: any) => {
@@ -72,8 +80,15 @@ export default function VoiceMessagePlayer({
     setIsPlaying(false);
   };
 
-  const effectiveDuration = duration || initialDuration;
-  const progressRatio = effectiveDuration > 0 ? currentTime / effectiveDuration : 0;
+  const effectiveDuration =
+    duration && isFinite(duration) && duration > 0
+      ? duration
+      : initialDuration && initialDuration > 0
+      ? initialDuration
+      : 0;
+
+  const progressRatio =
+    effectiveDuration > 0 ? Math.min(1, Math.max(0, currentTime / effectiveDuration)) : 0;
 
   const handleWaveformClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -93,6 +108,8 @@ export default function VoiceMessagePlayer({
     return {};
   };
 
+  const isPausedMidtrack = !isPlaying && currentTime > 0 && currentTime < effectiveDuration;
+
   return (
     <div
       style={getContainerStyle()}
@@ -104,9 +121,8 @@ export default function VoiceMessagePlayer({
     >
       <audio
         ref={audioRef}
-        src={src}
+        src={fixedSrc}
         preload="metadata"
-        crossOrigin="anonymous"
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onDurationChange={handleLoadedMetadata}
@@ -161,9 +177,11 @@ export default function VoiceMessagePlayer({
         })}
       </div>
 
-      {/* Duration Display */}
-      <span className="text-xs font-mono font-bold shrink-0 opacity-90">
-        {formatTime(isPlaying && currentTime > 0 ? currentTime : effectiveDuration)}
+      {/* Duration & Playback Timer Display */}
+      <span className="text-xs font-mono font-bold shrink-0 opacity-90 text-right">
+        {isPlaying || isPausedMidtrack
+          ? `${formatTime(currentTime)} / ${formatTime(effectiveDuration)}`
+          : formatTime(effectiveDuration)}
       </span>
     </div>
   );

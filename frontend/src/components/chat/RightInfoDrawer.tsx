@@ -69,7 +69,25 @@ export function RightInfoDrawer({
   const { messages, updateConversation } = useChatStore();
   const { t } = useTranslation();
   
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(
+    Boolean(conversation.isMuted || (conversation.settings as any)?.isMuted)
+  );
+
+  useEffect(() => {
+    setIsMuted(Boolean(conversation.isMuted || (conversation.settings as any)?.isMuted));
+  }, [conversation._id, conversation.isMuted, (conversation.settings as any)?.isMuted]);
+
+  const handleToggleMute = async () => {
+    try {
+      const res = await chatService.toggleMuteConversation(conversation._id);
+      const newMuteState = Boolean(res.isMuted);
+      setIsMuted(newMuteState);
+      updateConversation({ ...conversation, isMuted: newMuteState });
+      toast.success(newMuteState ? t("drawer.muted") : "Đã bật lại thông báo");
+    } catch (error) {
+      toast.error("Lỗi khi thay đổi cài đặt thông báo");
+    }
+  };
   const [selectedImg, setSelectedImg] = useState<string | null>(null);
   const [isBlocking, setIsBlocking] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -867,10 +885,7 @@ export function RightInfoDrawer({
             </button>
 
             <button
-              onClick={() => {
-                setIsMuted(!isMuted);
-                toast.success(isMuted ? t("common.success") : t("drawer.muted"));
-              }}
+              onClick={handleToggleMute}
               className="w-full p-2 rounded-xl flex items-center justify-between hover:bg-muted/50 transition-smooth text-xs"
             >
               <div className="flex items-center gap-2.5 text-foreground">

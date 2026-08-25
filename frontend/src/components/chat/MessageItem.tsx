@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { cn, formatMessageTime } from "@/lib/utils";
+import { fixFileUrl } from "@/lib/urlFix";
 import type { Conversation, Message, ParentMessage, Participant } from "@/types/chat";
 import UserAvatar from "./UserAvatar";
 import { Card } from "../ui/card";
@@ -32,6 +33,8 @@ import {
   PhoneCall,
   PhoneOff,
   Video,
+  Lock,
+  Copy,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
@@ -175,6 +178,34 @@ const MessageItem = ({
   const isOwn = message.isOwn ?? (senderIdStr === user?._id?.toString());
 
   const [showTimestampToggle, setShowTimestampToggle] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const touchTimerRef = useRef<any>(null);
+
+  const handleTouchStart = () => {
+    if (message.deletedAt || isSelectionMode) return;
+    touchTimerRef.current = setTimeout(() => {
+      if (typeof window !== "undefined" && navigator.vibrate) {
+        try {
+          navigator.vibrate(40);
+        } catch {}
+      }
+      setIsMobileMenuOpen(true);
+    }, 500);
+  };
+
+  const handleTouchMove = () => {
+    if (touchTimerRef.current) {
+      clearTimeout(touchTimerRef.current);
+      touchTimerRef.current = null;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (touchTimerRef.current) {
+      clearTimeout(touchTimerRef.current);
+      touchTimerRef.current = null;
+    }
+  };
 
   const prev = index + 1 < messages.length ? messages[index + 1] : undefined;
   const next = index - 1 >= 0 ? messages[index - 1] : undefined;
@@ -422,8 +453,11 @@ const MessageItem = ({
                 onToggleSelect(message._id);
               }
             }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
             className={cn(
-              "flex gap-2 message-bounce mt-2 group items-end transition-all rounded-xl relative",
+              "flex gap-2 message-bounce mt-2 group items-end transition-all rounded-xl relative min-w-0 max-w-full",
               isOwn ? "flex-row-reverse" : "flex-row",
               isSelectionMode && "cursor-pointer"
             )}
@@ -462,7 +496,7 @@ const MessageItem = ({
             {/* Message Container */}
             <div
               className={cn(
-                "max-w-xs lg:max-w-md space-y-1 flex flex-col",
+                "max-w-[75%] sm:max-w-[70%] lg:max-w-[65%] space-y-1 flex flex-col min-w-0",
                 isOwn ? "items-end" : "items-start"
               )}
             >
@@ -513,15 +547,23 @@ const MessageItem = ({
                   (message.content && (message.content.includes("Voice Message") || message.content.includes("Tin nhắn thoại")));
 
                 let voiceDuration: number | undefined = undefined;
-                if (message.content) {
-                  const match = message.content.match(/\D*(\d+)\s*s?/);
-                  if (match && match[1]) {
-                    const parsedSecs = parseInt(match[1], 10);
-                    if (!isNaN(parsedSecs) && parsedSecs > 0) {
-                      voiceDuration = parsedSecs;
-                    }
+                const parseDurationStr = (str?: string): number | undefined => {
+                  if (!str) return undefined;
+                  const secMatch = str.match(/(\d+)\s*s\b/i) || str.match(/^(\d+)\s*s?$/);
+                  if (secMatch && secMatch[1]) {
+                    const s = parseInt(secMatch[1], 10);
+                    if (!isNaN(s) && s > 0) return s;
                   }
-                }
+                  const minSecMatch = str.match(/(\d+):(\d+)/);
+                  if (minSecMatch && minSecMatch[1] && minSecMatch[2]) {
+                    const m = parseInt(minSecMatch[1], 10);
+                    const s = parseInt(minSecMatch[2], 10);
+                    if (!isNaN(m) && !isNaN(s)) return m * 60 + s;
+                  }
+                  return undefined;
+                };
+
+                voiceDuration = parseDurationStr(message.content || undefined) || parseDurationStr(message.fileSize ?? undefined);
 
                 return (
                   <>
@@ -540,20 +582,20 @@ const MessageItem = ({
                             HD
                           </span>
                           <img
-                            src={message.imgUrl}
+                            src={fixFileUrl(message.imgUrl)}
                             alt="Attachment"
                             className="w-full h-auto max-h-60 object-cover"
                           />
                           <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity">
                             <button
-                              onClick={() => handleSaveToCloud(message.imgUrl!, message.fileName || "Image.png", message.fileSize || undefined, "image")}
+                              onClick={() => handleSaveToCloud(fixFileUrl(message.imgUrl)!, message.fileName || "Image.png", message.fileSize || undefined, "image")}
                               className="p-1.5 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md text-white"
                               title="Lưu vào Kyeto Cloud"
                             >
                               <Cloud className="size-4" />
                             </button>
                             <a
-                              href={message.imgUrl}
+                              href={fixFileUrl(message.imgUrl)}
                               download
                               target="_blank"
                               rel="noreferrer"
@@ -635,7 +677,7 @@ const MessageItem = ({
                               <Cloud className="size-4" />
                             </button>
                             <a
-                              href={message.fileUrl}
+                              href={fixFileUrl(message.fileUrl)}
                               download={message.fileName || "file"}
                               target="_blank"
                               rel="noreferrer"
@@ -820,9 +862,9 @@ const MessageItem = ({
 
                     {/* Text Bubble */}
                     {message.content && !isAutoGeneratedFileText && !isVoiceMessage && message.type !== "location" && !message.location && message.type !== "call_log" && (
-                      <div className="flex flex-col">
+                      <div className="flex flex-col min-w-0 max-w-full">
                         <div
-                          className="flex items-end gap-1.5 cursor-pointer"
+                          className="flex items-end gap-1.5 cursor-pointer min-w-0 max-w-full"
                           onDoubleClick={(e) => {
                             e.stopPropagation();
                             setShowTimestampToggle((prev) => !prev);
@@ -831,7 +873,7 @@ const MessageItem = ({
                         >
                           <Card
                             className={cn(
-                              "px-4 py-2.5 rounded-2xl relative shadow-xs transition-all border-0 select-text",
+                              "px-4 py-2.5 rounded-2xl relative shadow-xs transition-all border-0 select-text min-w-0 max-w-full break-words [overflow-wrap:anywhere]",
                               isOwn
                                 ? !((selectedConvo.settings as any)?.customColor) && "bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 font-medium"
                                 : "bg-card dark:bg-card/90 text-foreground border border-border/40",
@@ -843,9 +885,16 @@ const MessageItem = ({
                               color: isOwn && (selectedConvo.settings as any)?.customColor ? "#ffffff" : undefined,
                             }}
                           >
-                            <p className="text-sm leading-relaxed break-words">
-                              {renderContentWithMentions(message.content)}
-                            </p>
+                            {message.content === "*Không thể giải mã tin nhắn*" || message.content === "[Tin nhắn mã hóa E2EE]" ? (
+                              <span className="italic opacity-80 flex items-center gap-1.5 text-xs py-0.5 select-none">
+                                <Lock className="size-3.5 shrink-0" />
+                                <span>Không thể giải mã tin nhắn</span>
+                              </span>
+                            ) : (
+                              <p className="text-sm leading-relaxed break-words [overflow-wrap:anywhere] [word-break:break-word] whitespace-pre-wrap">
+                                {renderContentWithMentions(message.content)}
+                              </p>
+                            )}
 
                             {message.isEdited && !message.deletedAt && (
                               <span className="text-[10px] opacity-70 block text-right mt-0.5">
@@ -1100,6 +1149,132 @@ const MessageItem = ({
                 Chọn nhiều tin nhắn để xóa
               </Button>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mobile Long Press Action Menu Sheet */}
+      <Dialog open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+        <DialogContent className="max-w-xs sm:max-w-sm bg-card/95 backdrop-blur-xl border-border/50 p-4 rounded-3xl shadow-2xl">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Tùy chọn tin nhắn</DialogTitle>
+            <DialogDescription>Menu thao tác tin nhắn di động</DialogDescription>
+          </DialogHeader>
+
+          {/* Quick Reaction Bar */}
+          <div className="flex items-center justify-between gap-1 p-2 bg-muted/60 dark:bg-muted/30 rounded-2xl border border-border/40 mb-2 overflow-x-auto">
+            {QUICK_EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                onClick={() => {
+                  toggleReaction(message._id, emoji);
+                  setIsMobileMenuOpen(false);
+                }}
+                className="text-xl hover:scale-125 transition-transform p-1.5 rounded-xl hover:bg-primary/10 active:scale-95"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+
+          <div className="space-y-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                setReplyingToMessage(message);
+              }}
+              className="w-full justify-start text-xs h-10 rounded-xl"
+            >
+              <Reply className="size-4 mr-2.5 text-amber-500" />
+              Trả lời tin nhắn
+            </Button>
+
+            {message.content && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  if (message.content) {
+                    navigator.clipboard.writeText(message.content);
+                    toast.success("Đã sao chép nội dung tin nhắn!");
+                  }
+                }}
+                className="w-full justify-start text-xs h-10 rounded-xl"
+              >
+                <Copy className="size-4 mr-2.5 text-emerald-500" />
+                Sao chép nội dung
+              </Button>
+            )}
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                setForwardModalOpen(true);
+              }}
+              className="w-full justify-start text-xs h-10 rounded-xl"
+            >
+              <Forward className="size-4 mr-2.5 text-sky-500" />
+              Chuyển tiếp tin nhắn
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                handleTogglePin();
+              }}
+              className="w-full justify-start text-xs h-10 rounded-xl"
+            >
+              <Pin className="size-4 mr-2.5 text-amber-400" />
+              Ghim tin nhắn
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                handleToggleBookmark();
+              }}
+              className="w-full justify-start text-xs h-10 rounded-xl"
+            >
+              <Bookmark className="size-4 mr-2.5 text-indigo-400" />
+              Lưu vào Bookmark
+            </Button>
+
+            {isOwn && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setEditingMessage(message);
+                }}
+                className="w-full justify-start text-xs h-10 rounded-xl"
+              >
+                <Edit2 className="size-4 mr-2.5 text-muted-foreground" />
+                Chỉnh sửa tin nhắn
+              </Button>
+            )}
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                setDeleteOptionsOpen(true);
+              }}
+              className="w-full justify-start text-xs h-10 rounded-xl text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="size-4 mr-2.5" />
+              Xóa / Thu hồi tin nhắn
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

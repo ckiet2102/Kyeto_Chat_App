@@ -5,6 +5,29 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { useAuthStore } from "./useAuthStore";
 import { useSocketStore } from "./useSocketStore";
+import { CryptoService } from "@/services/cryptoService";
+
+const getParticipantUserId = (p: any): string => {
+  if (!p) return "";
+  if (typeof p === "string") return p;
+  if (p._id && typeof p._id === "string" && !p.userId) return p._id;
+  if (p.userId) {
+    if (typeof p.userId === "string") return p.userId;
+    if (typeof p.userId === "object" && p.userId._id) return p.userId._id.toString();
+  }
+  if (p._id) return p._id.toString();
+  return "";
+};
+
+const getOtherUserIdFromConvo = (convo: Conversation | undefined, currentUserId: string | undefined): string => {
+  if (!convo || !currentUserId) return "";
+  const myId = currentUserId.toString();
+  const otherPart = convo.participants.find((p: any) => {
+    const pId = getParticipantUserId(p);
+    return pId && pId !== myId;
+  });
+  return otherPart ? getParticipantUserId(otherPart) : "";
+};
 
 const sortConversations = (conversations: Conversation[]): Conversation[] => {
   return [...conversations].sort((a, b) => {
@@ -63,8 +86,34 @@ export const useChatStore = create<ChatState>()(
         try {
           set({ convoLoading: true });
           const { conversations } = await chatService.fetchConversations();
+          const { user } = useAuthStore.getState();
 
-          set({ conversations: sortConversations(conversations), convoLoading: false });
+          const processed = await Promise.all(
+            conversations.map(async (c) => {
+              if (
+                c.lastMessage?.content &&
+                (c.lastMessage.content.startsWith("ECDH:") || c.lastMessage.content.startsWith("E2EE:"))
+              ) {
+                const otherUserId = getOtherUserIdFromConvo(c, user?._id);
+                const decryptedLast = await CryptoService.decryptMessage(
+                  c.lastMessage.content,
+                  "moji-default-key",
+                  user?._id,
+                  otherUserId
+                );
+                return {
+                  ...c,
+                  lastMessage: {
+                    ...c.lastMessage,
+                    content: decryptedLast,
+                  },
+                };
+              }
+              return c;
+            })
+          );
+
+          set({ conversations: sortConversations(processed), convoLoading: false });
         } catch (error) {
           console.error("Lỗi xảy ra khi fetchConversations:", error);
           set({ convoLoading: false });
@@ -92,10 +141,43 @@ export const useChatStore = create<ChatState>()(
             nextCursor
           );
 
-          const processed = fetched.map((m) => ({
-            ...m,
-            isOwn: m.senderId === user?._id,
-          }));
+          const processed = await Promise.all(
+            fetched.map(async (m) => {
+              const senderIdStr =
+                typeof m.senderId === "object"
+                  ? (m.senderId as any)?._id?.toString()
+                  : m.senderId?.toString();
+              const recipientIdStr =
+                typeof m.recipientId === "object"
+                  ? (m.recipientId as any)?._id?.toString()
+                  : m.recipientId?.toString();
+
+              const activeConvo = get().conversations.find((c) => c._id === convoId);
+              const otherUserId =
+                senderIdStr === user?._id?.toString()
+                  ? (recipientIdStr || getOtherUserIdFromConvo(activeConvo, user?._id))
+                  : senderIdStr;
+
+              let decryptedContent = m.content;
+              if (
+                m.content &&
+                (m.content.startsWith("ECDH:") || m.content.startsWith("E2EE:"))
+              ) {
+                decryptedContent = await CryptoService.decryptMessage(
+                  m.content,
+                  "moji-default-key",
+                  user?._id,
+                  otherUserId
+                );
+              }
+
+              return {
+                ...m,
+                content: decryptedContent,
+                isOwn: senderIdStr === user?._id?.toString(),
+              };
+            })
+          );
 
           set((state) => {
             const prev = state.messages[convoId]?.items ?? [];
@@ -135,9 +217,21 @@ export const useChatStore = create<ChatState>()(
         try {
           const { activeConversationId, replyingToMessage } = get();
           const targetConvoId = conversationId || activeConversationId;
+          const { user } = useAuthStore.getState();
+
+          let encryptedContent = content;
+          if (content && content.trim() && user?._id) {
+            encryptedContent = await CryptoService.encryptMessage(
+              content,
+              "moji-default-key",
+              user._id,
+              recipientId
+            );
+          }
+
           await chatService.sendDirectMessage(
             recipientId,
-            content,
+            encryptedContent,
             imgUrl,
             targetConvoId || undefined,
             parentMessageId || replyingToMessage?._id,
@@ -152,7 +246,18 @@ export const useChatStore = create<ChatState>()(
           const now = new Date().toISOString();
           set((state) => {
             const updated = state.conversations.map((c) =>
-              c._id === targetConvoId ? { ...c, seenBy: [], lastMessageAt: now, updatedAt: now } : c
+              c._id === targetConvoId
+                ? {
+                    ...c,
+                    seenBy: [],
+                    lastMessageAt: now,
+                    updatedAt: now,
+                    lastMessage: {
+                      ...c.lastMessage,
+                      content: content || c.lastMessage?.content,
+                    } as any,
+                  }
+                : c
             );
             return {
               replyingToMessage: null,
@@ -178,9 +283,20 @@ export const useChatStore = create<ChatState>()(
       ) => {
         try {
           const { replyingToMessage } = get();
+          const { user } = useAuthStore.getState();
+
+          let encryptedContent = content;
+          if (content && content.trim() && user?._id) {
+            encryptedContent = await CryptoService.encryptMessage(
+              content,
+              "moji-default-key",
+              user._id
+            );
+          }
+
           await chatService.sendGroupMessage(
             conversationId,
-            content,
+            encryptedContent,
             imgUrl,
             parentMessageId || replyingToMessage?._id,
             fileUrl,
@@ -194,7 +310,18 @@ export const useChatStore = create<ChatState>()(
           const now = new Date().toISOString();
           set((state) => {
             const updated = state.conversations.map((c) =>
-              c._id === conversationId ? { ...c, seenBy: [], lastMessageAt: now, updatedAt: now } : c
+              c._id === conversationId
+                ? {
+                    ...c,
+                    seenBy: [],
+                    lastMessageAt: now,
+                    updatedAt: now,
+                    lastMessage: {
+                      ...c.lastMessage,
+                      content: content || c.lastMessage?.content,
+                    } as any,
+                  }
+                : c
             );
             return {
               replyingToMessage: null,
@@ -361,7 +488,35 @@ export const useChatStore = create<ChatState>()(
             ? (message.senderId as any)?._id?.toString()
             : message.senderId?.toString();
 
-          message.isOwn = message.isOwn ?? (senderIdStr === user?._id?.toString());
+          const isOwn = message.isOwn ?? (senderIdStr === user?._id?.toString());
+
+          const recipientIdStr = typeof (message as any).recipientId === "object"
+            ? (message as any).recipientId?._id?.toString()
+            : (message as any).recipientId?.toString();
+
+          const activeConvo = get().conversations.find((c) => c._id === message.conversationId);
+          const otherUserId = senderIdStr === user?._id?.toString()
+            ? (recipientIdStr || getOtherUserIdFromConvo(activeConvo, user?._id))
+            : senderIdStr;
+
+          let decryptedContent = message.content;
+          if (
+            message.content &&
+            (message.content.startsWith("ECDH:") || message.content.startsWith("E2EE:"))
+          ) {
+            decryptedContent = await CryptoService.decryptMessage(
+              message.content,
+              "moji-default-key",
+              user?._id,
+              otherUserId
+            );
+          }
+
+          const messageToStore = {
+            ...message,
+            content: decryptedContent,
+            isOwn,
+          };
 
           const convoId = message.conversationId;
 
@@ -373,7 +528,7 @@ export const useChatStore = create<ChatState>()(
           }
 
           set((state) => {
-            if (prevItems.some((m) => m._id === message._id)) {
+            if (prevItems.some((m) => m._id === messageToStore._id)) {
               return state;
             }
 
@@ -383,7 +538,7 @@ export const useChatStore = create<ChatState>()(
               messages: {
                 ...state.messages,
                 [convoId]: {
-                  items: [...prevItems, message],
+                  items: [...prevItems, messageToStore],
                   hasMore: currentConvoState.hasMore,
                   nextCursor: currentConvoState.nextCursor ?? undefined,
                 },

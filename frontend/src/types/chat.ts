@@ -78,6 +78,7 @@ export interface Message {
   _id: string;
   conversationId: string;
   senderId: string | { _id: string; displayName?: string; avatarUrl?: string };
+  recipientId?: string | { _id: string; displayName?: string; avatarUrl?: string };
   type?: "text" | "voice" | "video" | "gif" | "poll" | "file" | "location" | "call_log";
   content: string | null;
   imgUrl?: string | null;

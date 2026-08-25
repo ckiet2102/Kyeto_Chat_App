@@ -24,7 +24,7 @@ export const getSupportedAudioMimeType = (): { mimeType: string; extension: stri
       }
     }
   }
-  return { mimeType: "audio/webm", extension: "webm" };
+  return { mimeType: "", extension: "m4a" };
 };
 
 export default function VoiceRecorder({ onSendVoice, onCancel }: VoiceRecorderProps) {
@@ -36,38 +36,75 @@ export default function VoiceRecorder({ onSendVoice, onCancel }: VoiceRecorderPr
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<any>(null);
+  const isMountedRef = useRef<boolean>(true);
 
-  useEffect(() => {
-    startRecording();
-    return () => {
-      stopTimer();
-    };
-  }, []);
+  const stopTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
 
   const startTimer = () => {
+    stopTimer();
     setSeconds(0);
     timerRef.current = setInterval(() => {
       setSeconds((prev) => prev + 1);
     }, 1000);
   };
 
-  const stopTimer = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-  };
+  useEffect(() => {
+    isMountedRef.current = true;
+    startRecording();
+
+    return () => {
+      isMountedRef.current = false;
+      stopTimer();
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, []);
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!navigator?.mediaDevices?.getUserMedia) {
+        toast.error("Trình duyệt không hỗ trợ ghi âm hoặc cần kết nối HTTPS / Localhost");
+        onCancel();
+        return;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+      if (!isMountedRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
       const { mimeType, extension } = getSupportedAudioMimeType();
       setRecordedExtension(extension);
 
-      const options = mimeType ? { mimeType } : undefined;
-      const mediaRecorder = new MediaRecorder(stream, options);
+      let mediaRecorder: MediaRecorder;
+      try {
+        const options = mimeType ? { mimeType } : undefined;
+        mediaRecorder = new MediaRecorder(stream, options);
+      } catch (mimeErr) {
+        console.warn("Failed to use preferred mimeType, using default MediaRecorder:", mimeErr);
+        mediaRecorder = new MediaRecorder(stream);
+      }
+
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
       mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
+        if (e.data && e.data.size > 0) {
+          chunksRef.current.push(e.data);
+        }
       };
 
       mediaRecorder.onstop = () => {
@@ -78,27 +115,67 @@ export default function VoiceRecorder({ onSendVoice, onCancel }: VoiceRecorderPr
         stream.getTracks().forEach((track) => track.stop());
       };
 
-      mediaRecorder.start();
+      // Request data every 250ms for reliable chunks
+      try {
+        mediaRecorder.start(250);
+      } catch (startErr) {
+        // Fallback without timeslice for Safari
+        mediaRecorder.start();
+      }
       setIsRecording(true);
       startTimer();
-    } catch (err) {
-      console.error(err);
-      toast.error("Không thể truy cập Microphone");
+    } catch (err: any) {
+      console.error("Microphone access error:", err);
+      const errMsg = err?.name === "NotAllowedError" 
+        ? "Bạn đã từ chối quyền truy cập Micro" 
+        : "Không thể truy cập Microphone";
+      toast.error(errMsg);
       onCancel();
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
+    stopTimer();
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      if (typeof mediaRecorderRef.current.requestData === "function") {
+        try {
+          mediaRecorderRef.current.requestData();
+        } catch (e) {
+          // ignore
+        }
+      }
       mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      stopTimer();
     }
+    setIsRecording(false);
   };
 
   const handleSend = () => {
-    if (recordedBlob) {
+    stopTimer();
+    const currentSeconds = seconds;
+    const extension = recordedExtension;
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      if (typeof mediaRecorderRef.current.requestData === "function") {
+        try {
+          mediaRecorderRef.current.requestData();
+        } catch (e) {
+          // ignore
+        }
+      }
+      mediaRecorderRef.current.onstop = () => {
+        const actualType = mediaRecorderRef.current?.mimeType || "audio/webm";
+        const blob = new Blob(chunksRef.current, { type: actualType });
+        if (blob.size > 0) {
+          onSendVoice(blob, currentSeconds, extension);
+        } else {
+          toast.error("File ghi âm rỗng, vui lòng thử lại");
+        }
+      };
+      mediaRecorderRef.current.stop();
+    } else if (recordedBlob) {
       onSendVoice(recordedBlob, seconds, recordedExtension);
+    } else {
+      toast.error("Chưa có dữ liệu ghi âm");
     }
   };
 
@@ -126,20 +203,38 @@ export default function VoiceRecorder({ onSendVoice, onCancel }: VoiceRecorderPr
         ))}
       </div>
 
-      {isRecording ? (
-        <Button variant="ghost" size="icon" onClick={stopRecording} className="size-8 rounded-full text-red-500 hover:bg-red-500/10">
-          <Square className="size-4" />
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onCancel}
+          className="size-8 rounded-full text-muted-foreground hover:text-destructive"
+          title="Hủy ghi âm"
+        >
+          <Trash2 className="size-4" />
         </Button>
-      ) : (
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" onClick={onCancel} className="size-8 rounded-full text-muted-foreground hover:text-destructive">
-            <Trash2 className="size-4" />
+
+        {isRecording && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={stopRecording}
+            className="size-8 rounded-full text-red-500 hover:bg-red-500/10"
+            title="Dừng ghi âm"
+          >
+            <Square className="size-4" />
           </Button>
-          <Button size="icon" onClick={handleSend} className="size-8 rounded-full bg-primary text-primary-foreground">
-            <Send className="size-4" />
-          </Button>
-        </div>
-      )}
+        )}
+
+        <Button
+          size="icon"
+          onClick={handleSend}
+          className="size-8 rounded-full bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 hover:scale-105 transition-transform"
+          title="Gửi tin nhắn thoại"
+        >
+          <Send className="size-4 fill-slate-950 text-slate-950 ml-0.5" />
+        </Button>
+      </div>
     </div>
   );
 }

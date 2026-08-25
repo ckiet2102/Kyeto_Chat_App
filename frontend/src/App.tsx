@@ -23,9 +23,11 @@ import { JoinGroupPage } from "./pages/JoinGroupPage";
 import TermsPage from "./pages/TermsPage";
 import PrivacyPage from "./pages/PrivacyPage";
 
+import { CryptoService } from "./services/cryptoService";
+
 function App() {
   const { isDark, setTheme } = useThemeStore();
-  const { accessToken, requires2FA } = useAuthStore();
+  const { accessToken, user, requires2FA } = useAuthStore();
   const { connectSocket, disconnectSocket } = useSocketStore();
 
   useEffect(() => {
@@ -35,10 +37,13 @@ function App() {
   useEffect(() => {
     if (accessToken) {
       connectSocket();
+      if (user?._id) {
+        CryptoService.initUserKeys(user._id);
+      }
     }
 
     return () => disconnectSocket();
-  }, [accessToken]);
+  }, [accessToken, user?._id]);
 
   if (requires2FA) {
     return (

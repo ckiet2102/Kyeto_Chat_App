@@ -83,7 +83,7 @@ const CallModal = () => {
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex flex-col justify-between p-4 sm:p-6 animate-in fade-in duration-300">
       {/* Audio Element for WebRTC Remote Stream Audio (Positioned in DOM without display:none for iOS Safari) */}
-      <audio ref={remoteAudioRef} autoPlay playsInline controls={false} className="fixed top-0 left-0 w-1 h-1 opacity-1 pointer-events-none z-[-9999]" />
+      <audio ref={remoteAudioRef} autoPlay playsInline {...({ "webkit-playsinline": "true" } as any)} controls={false} className="fixed top-0 left-0 w-1 h-1 opacity-1 pointer-events-none z-[-9999]" />
 
       {/* Header Info */}
       <div className="flex items-center justify-between text-white z-10">
@@ -118,6 +118,7 @@ const CallModal = () => {
           ref={remoteVideoRef}
           autoPlay
           playsInline
+          {...({ "webkit-playsinline": "true" } as any)}
           className={remoteStream && !isVideoOff ? "w-full h-full object-cover" : "fixed top-0 left-0 w-1 h-1 opacity-1 pointer-events-none z-[-9999]"}
         />
 
@@ -152,6 +153,7 @@ const CallModal = () => {
                 ref={localVideoRef}
                 autoPlay
                 playsInline
+                {...({ "webkit-playsinline": "true" } as any)}
                 muted
                 className="w-full h-full object-cover transform scale-x-[-1]"
               />

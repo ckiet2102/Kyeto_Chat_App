@@ -58,8 +58,8 @@ export const uploadImageFromBuffer = async (buffer, options = {}, filenameHint =
 
   fs.writeFileSync(filePath, buffer);
 
-  const serverUrl = process.env.SERVER_URL || "http://localhost:5001";
-  const fileUrl = `${serverUrl}/uploads/${uniqueName}`;
+  const serverUrl = (process.env.SERVER_URL || process.env.CLIENT_URL || "").replace(/\/$/, "");
+  const fileUrl = serverUrl ? `${serverUrl}/uploads/${uniqueName}` : `/uploads/${uniqueName}`;
 
   return {
     secure_url: fileUrl,

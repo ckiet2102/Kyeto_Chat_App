@@ -1,8 +1,18 @@
 import { useAuthStore } from "@/stores/useAuthStore";
 import axios from "axios";
 
+const getBaseURL = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+    if (!envUrl || envUrl.includes("localhost")) {
+      return `${window.location.origin}/api`;
+    }
+  }
+  return envUrl || "http://localhost:5001/api";
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "https://kyeto-backend.onrender.com/api",
+  baseURL: getBaseURL(),
   withCredentials: true,
 });
 

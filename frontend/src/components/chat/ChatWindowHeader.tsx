@@ -41,9 +41,16 @@ const ChatWindowHeader = ({ chat, onToggleInfoDrawer }: ChatWindowHeaderProps) =
 
   const isOnline = otherUser ? onlineUsers.includes(otherUser._id) : false;
 
+  const nickname = !isGroup && otherUser
+    ? (chat.settings as any)?.nicknames?.[otherUser._id] ||
+      (typeof (chat.settings as any)?.nicknames?.get === "function"
+        ? (chat.settings as any).nicknames.get(otherUser._id)
+        : null)
+    : null;
+
   const headerTitle = isGroup
     ? conversationName(chat)
-    : otherUser?.displayName || "Trò chuyện";
+    : nickname || otherUser?.displayName || "Trò chuyện";
 
   function conversationName(c: Conversation) {
     if (c.group?.name) return c.group.name;

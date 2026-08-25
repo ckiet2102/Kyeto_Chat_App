@@ -1,27 +1,54 @@
 import { keyStoreService } from "./keyStoreService";
 import api from "@/lib/axios";
 
+function uint8ToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+function base64ToUint8(base64: string): Uint8Array {
+  const binary = atob(base64.trim());
+  const len = binary.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
 export class CryptoService {
   private static sharedKeysCache = new Map<string, CryptoKey>();
 
-  // 1. Generate local ECDH Key Pair (P-256)
+  // 1. Generate local ECDH Key Pair (P-256) and ALWAYS sync public key to backend
   static async initUserKeys(userId: string): Promise<string> {
+    if (!userId) return "";
     try {
       let stored = await keyStoreService.getKeys(userId);
 
       // Check key rotation (> 30 days)
       const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
       if (stored && Date.now() - stored.createdAt > THIRTY_DAYS_MS) {
-        console.log("[E2EE] Keys are older than 30 days. Rotating keys...");
+        console.log("[E2EE] Keys older than 30 days. Rotating keys...");
         await keyStoreService.deleteKeys(userId);
         stored = null;
       }
 
       if (stored) {
-        return JSON.stringify(stored.publicKeyJWK);
+        const pubKeyStr = JSON.stringify(stored.publicKeyJWK);
+        // Ensure backend always has our active public key
+        try {
+          await api.post("/users/keys", { publicKey: pubKeyStr }, { withCredentials: true });
+        } catch (e) {
+          console.warn("[E2EE] Could not sync public key to backend:", e);
+        }
+        return pubKeyStr;
       }
 
-      // Generate ECDH Key Pair
+      // Generate new ECDH Key Pair
       const keyPair = await window.crypto.subtle.generateKey(
         { name: "ECDH", namedCurve: "P-256" },
         true,
@@ -34,7 +61,6 @@ export class CryptoService {
       await keyStoreService.saveKeys(userId, publicKeyJWK, privateKeyJWK);
 
       const pubKeyStr = JSON.stringify(publicKeyJWK);
-      // Upload public key to backend
       await api.post("/users/keys", { publicKey: pubKeyStr }, { withCredentials: true });
       return pubKeyStr;
     } catch (error) {
@@ -45,6 +71,7 @@ export class CryptoService {
 
   // 2. Derive Shared AES-GCM Key with recipient's ECDH Public Key
   static async getSharedKey(currentUserId: string, recipientUserId: string): Promise<CryptoKey | null> {
+    if (!currentUserId || !recipientUserId) return null;
     const cacheKey = `${currentUserId}_${recipientUserId}`;
     if (this.sharedKeysCache.has(cacheKey)) {
       return this.sharedKeysCache.get(cacheKey)!;
@@ -62,7 +89,7 @@ export class CryptoService {
       const res = await api.get(`/users/${recipientUserId}/key`, { withCredentials: true });
       const recipientPubKeyStr = res.data?.publicKey;
       if (!recipientPubKeyStr) {
-        console.warn(`[E2EE] Recipient ${recipientUserId} has no ECDH public key yet.`);
+        console.warn(`[E2EE] Recipient ${recipientUserId} has no ECDH public key on server.`);
         return null;
       }
 
@@ -103,7 +130,7 @@ export class CryptoService {
     }
   }
 
-  // Legacy PBKDF2 Fallback Key
+  // Fallback PBKDF2 Key
   private static async getDerivedKey(passphrase: string, salt: Uint8Array): Promise<CryptoKey> {
     const enc = new TextEncoder();
     const keyMaterial = await window.crypto.subtle.importKey(
@@ -128,7 +155,7 @@ export class CryptoService {
     );
   }
 
-  // 3. Encrypt Message using ECDH Shared Key or Fallback Passphrase
+  // 3. Encrypt Message
   static async encryptMessage(
     text: string,
     secretPassphrase = "moji-default-key",
@@ -146,7 +173,7 @@ export class CryptoService {
 
       if (key) {
         const encryptedContent = await window.crypto.subtle.encrypt(
-          { name: "AES-GCM", iv },
+          { name: "AES-GCM", iv: iv as any },
           key,
           enc.encode(text)
         );
@@ -155,14 +182,14 @@ export class CryptoService {
         combined.set(iv, 0);
         combined.set(new Uint8Array(encryptedContent), iv.length);
 
-        return "ECDH:" + btoa(String.fromCharCode(...combined));
+        return "ECDH:" + uint8ToBase64(combined);
       }
 
       // Fallback PBKDF2
       const salt = window.crypto.getRandomValues(new Uint8Array(16));
       key = await this.getDerivedKey(secretPassphrase, salt);
       const encryptedContent = await window.crypto.subtle.encrypt(
-        { name: "AES-GCM", iv },
+        { name: "AES-GCM", iv: iv as any },
         key,
         enc.encode(text)
       );
@@ -172,7 +199,7 @@ export class CryptoService {
       combined.set(iv, salt.length);
       combined.set(new Uint8Array(encryptedContent), salt.length + iv.length);
 
-      return "E2EE:" + btoa(String.fromCharCode(...combined));
+      return "E2EE:" + uint8ToBase64(combined);
     } catch (error) {
       console.error("Lỗi mã hóa E2EE:", error);
       return text;
@@ -190,17 +217,13 @@ export class CryptoService {
       return encryptedStr;
     }
 
-    try {
-      const dec = new TextDecoder();
+    const dec = new TextDecoder();
 
-      if (encryptedStr.startsWith("ECDH:")) {
-        const base64Data = encryptedStr.replace("ECDH:", "");
-        const combined = new Uint8Array(
-          atob(base64Data)
-            .split("")
-            .map((char) => char.charCodeAt(0))
-        );
-
+    // 1. Try ECDH Decryption
+    if (encryptedStr.startsWith("ECDH:")) {
+      const base64Data = encryptedStr.replace("ECDH:", "");
+      try {
+        const combined = base64ToUint8(base64Data);
         const iv = combined.slice(0, 12);
         const data = combined.slice(12);
 
@@ -208,38 +231,39 @@ export class CryptoService {
           const key = await this.getSharedKey(currentUserId, otherUserId);
           if (key) {
             const decryptedBuffer = await window.crypto.subtle.decrypt(
-              { name: "AES-GCM", iv },
+              { name: "AES-GCM", iv: iv as any },
               key,
-              data
+              data as any
             );
             return dec.decode(decryptedBuffer);
           }
         }
+      } catch (error) {
+        console.warn("[E2EE] ECDH decrypt failed:", error);
       }
-
-      // Fallback PBKDF2
-      const base64Data = encryptedStr.replace("E2EE:", "");
-      const combined = new Uint8Array(
-        atob(base64Data)
-          .split("")
-          .map((char) => char.charCodeAt(0))
-      );
-
-      const salt = combined.slice(0, 16);
-      const iv = combined.slice(16, 28);
-      const data = combined.slice(28);
-
-      const key = await this.getDerivedKey(secretPassphrase, salt);
-      const decryptedBuffer = await window.crypto.subtle.decrypt(
-        { name: "AES-GCM", iv },
-        key,
-        data
-      );
-
-      return dec.decode(decryptedBuffer);
-    } catch (error) {
-      console.error("Lỗi giải mã E2EE:", error);
-      return "[Tin nhắn đã được mã hóa End-to-End]";
     }
+
+    // 2. Try PBKDF2 Decryption (for E2EE: format)
+    if (encryptedStr.startsWith("E2EE:")) {
+      const base64Data = encryptedStr.replace("E2EE:", "");
+      try {
+        const combined = base64ToUint8(base64Data);
+        const salt = combined.slice(0, 16);
+        const iv = combined.slice(16, 28);
+        const data = combined.slice(28);
+
+        const key = await this.getDerivedKey(secretPassphrase, salt);
+        const decryptedBuffer = await window.crypto.subtle.decrypt(
+          { name: "AES-GCM", iv: iv as any },
+          key,
+          data as any
+        );
+        return dec.decode(decryptedBuffer);
+      } catch (error) {
+        console.warn("[E2EE] PBKDF2 decrypt failed:", error);
+      }
+    }
+
+    return "*Không thể giải mã tin nhắn*";
   }
 }

@@ -29,13 +29,18 @@ const DirectMessageCard = ({ convo }: { convo: Conversation }) => {
   const unreadCount = convo.unreadCounts[user._id];
   const lastMessageObj = convo.lastMessage as any;
   const isVoice = lastMessageObj?.fileType === "voice" || (lastMessageObj?.fileUrl && lastMessageObj?.fileName?.includes("voice"));
+  const rawContent = lastMessageObj?.content || "";
+  const displayContent = (rawContent.startsWith("ECDH:") || rawContent.startsWith("E2EE:"))
+    ? "*Không thể giải mã tin nhắn*"
+    : rawContent;
+
   const lastMessage = isVoice
     ? "[Tin nhắn thoại]"
     : lastMessageObj?.imgUrl
       ? "[Hình ảnh]"
       : lastMessageObj?.fileUrl
         ? "[Tệp đính kèm]"
-        : lastMessageObj?.content || "";
+        : displayContent;
 
   const handleSelectConversation = async (id: string) => {
     setActiveConversation(id);

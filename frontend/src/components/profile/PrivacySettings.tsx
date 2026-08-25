@@ -17,16 +17,25 @@ import { TwoFactorSetup } from "./TwoFactorSetup";
 import LanguageSelector from "./LanguageSelector";
 import { useTranslation } from "react-i18next";
 
+import { useAuthStore } from "@/stores/useAuthStore";
+
 const PrivacySettings = () => {
   const { t } = useTranslation();
+  const { user, setUser } = useAuthStore();
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [changingPass, setChangingPass] = useState(false);
 
-  const [notificationsOn, setNotificationsOn] = useState(true);
+  const [notificationsOn, setNotificationsOn] = useState(user?.notificationsEnabled ?? true);
   const [showBlockedList, setShowBlockedList] = useState(false);
   const [blockedUsers, setBlockedUsers] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (user && typeof user.notificationsEnabled === "boolean") {
+      setNotificationsOn(user.notificationsEnabled);
+    }
+  }, [user?.notificationsEnabled]);
 
   useEffect(() => {
     loadBlockedUsers();
@@ -61,6 +70,9 @@ const PrivacySettings = () => {
     try {
       const data = await userService.toggleNotifications();
       setNotificationsOn(data.notificationsEnabled);
+      if (user) {
+        setUser({ ...user, notificationsEnabled: data.notificationsEnabled });
+      }
       toast.success(data.message);
     } catch (error) {
       toast.error(t("common.error"));

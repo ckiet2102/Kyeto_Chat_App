@@ -11,10 +11,17 @@ import { toast } from "sonner";
 import { NotificationService } from "@/services/notificationService";
 import { PushNotificationService } from "@/services/pushNotificationService";
 
-const rawSocketUrl = (import.meta.env.VITE_SOCKET_URL || "").trim();
-const baseURL = (rawSocketUrl && rawSocketUrl.length > 10 && rawSocketUrl.startsWith("http"))
-  ? rawSocketUrl
-  : "https://kyeto-backend.onrender.com";
+const getSocketBaseURL = () => {
+  const raw = (import.meta.env.VITE_SOCKET_URL || "").trim();
+  if (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+    if (!raw || raw.includes("localhost")) {
+      return window.location.origin;
+    }
+  }
+  return (raw && raw.length > 10 && raw.startsWith("http")) ? raw : "http://localhost:5001";
+};
+
+const baseURL = getSocketBaseURL();
 
 export const useSocketStore = create<SocketState>((set, get) => ({
   socket: null,
@@ -81,7 +88,17 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     });
 
     socket.on("user-mentioned", (data) => {
-      // Mention ALWAYS plays urgent notification sound & desktop push notification, overriding mute settings
+      const currentUser = useAuthStore.getState().user;
+      const isNotificationsEnabled = currentUser?.notificationsEnabled ?? true;
+
+      const convoId = data.conversationId;
+      const existingConvo = useChatStore.getState().conversations.find((c) => c._id === convoId);
+      const isConvoMuted = Boolean(existingConvo?.isMuted || (existingConvo?.settings as any)?.isMuted);
+
+      if (!isNotificationsEnabled || isConvoMuted) {
+        return;
+      }
+
       NotificationService.playMentionNotificationSound();
 
       const title = data.isMentionAll
@@ -144,7 +161,23 @@ export const useSocketStore = create<SocketState>((set, get) => ({
         useChatStore.getState().updateConversation(updatedConversation);
       }
 
-      if (message?.content) {
+      // Check notification settings (global notification status, muted conversation, and own message)
+      const currentUser = useAuthStore.getState().user;
+      const isNotificationsEnabled = currentUser?.notificationsEnabled ?? true;
+
+      const senderId = typeof message?.senderId === "object" ? message?.senderId?._id?.toString() : message?.senderId?.toString();
+      const currentUserId = currentUser?._id?.toString();
+      const isOwn = senderId && currentUserId && senderId === currentUserId;
+
+      const convoId = message?.conversationId || conversation?._id;
+      const existingConvo = useChatStore.getState().conversations.find((c) => c._id === convoId);
+      const isConvoMuted = Boolean(
+        existingConvo?.isMuted ||
+        (existingConvo?.settings as any)?.isMuted ||
+        conversation?.isMuted
+      );
+
+      if (message?.content && isNotificationsEnabled && !isConvoMuted && !isOwn) {
         NotificationService.playNotificationSound();
         NotificationService.sendDesktopNotification("Tin nhắn mới từ Kyeto", {
           body: message.content,

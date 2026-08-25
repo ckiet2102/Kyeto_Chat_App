@@ -9,6 +9,7 @@ export interface User {
   phone?: string;
   blockedUsers?: (string | { _id: string; displayName?: string })[];
   twoFactorEnabled?: boolean;
+  notificationsEnabled?: boolean;
   showOnlineStatus?: boolean;
   activityStatus?: boolean;
   status?: { emoji?: string; text?: string };
