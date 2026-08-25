@@ -25,7 +25,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(cors(corsOptionsDelegate));
 app.use(
-  "/uploads",
+  ["/uploads", "/api/uploads"],
   express.static("uploads", {
     setHeaders: (res, filePath) => {
       if (filePath.endsWith(".webm")) {

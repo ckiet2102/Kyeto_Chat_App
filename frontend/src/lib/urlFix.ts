@@ -1,6 +1,6 @@
 /**
  * Fix file and media URLs for multi-environment support (Local, Hosting, Vercel + Backend).
- * Resolves localhost:5001, vercel.app, and relative /uploads/ paths to the correct backend origin.
+ * Resolves localhost:5001, vercel.app, and relative /uploads/ paths to the correct backend origin with /api/uploads/ proxy route.
  */
 export function fixFileUrl(url: string | undefined | null): string {
   if (!url) return "";
@@ -31,9 +31,14 @@ export function fixFileUrl(url: string | undefined | null): string {
       backendOrigin = isLocalhostEnv ? window.location.origin : defaultLiveBackend;
     }
 
+    let cleanUrl = url;
+
+    // Route /uploads/ to /api/uploads/ so Apache/Nginx reverse proxies handle it cleanly
+    if (cleanUrl.includes("/uploads/") && !cleanUrl.includes("/api/uploads/")) {
+      cleanUrl = cleanUrl.replace(/\/uploads\//g, "/api/uploads/");
+    }
+
     if (!isLocalhostEnv) {
-      let cleanUrl = url;
-      // Strip any wrong frontend domain or localhost references
       if (cleanUrl.includes("kyeto-chat-app.vercel.app")) {
         cleanUrl = cleanUrl.replace(/https?:\/\/kyeto-chat-app\.vercel\.app/g, backendOrigin);
       }
@@ -42,14 +47,15 @@ export function fixFileUrl(url: string | undefined | null): string {
           .replace(/https?:\/\/localhost:5001/g, backendOrigin)
           .replace(/https?:\/\/127\.0\.0\.1:5001/g, backendOrigin);
       }
-      if (cleanUrl.startsWith("/uploads/")) {
+      if (cleanUrl.startsWith("/api/uploads/")) {
         cleanUrl = `${backendOrigin}${cleanUrl}`;
       }
       if (cleanUrl.startsWith("http://") && !cleanUrl.includes("localhost")) {
         cleanUrl = cleanUrl.replace("http://", "https://");
       }
-      return cleanUrl;
     }
+
+    return cleanUrl;
   }
 
   return url;
