@@ -47,6 +47,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     if (existingSocket) return; // tránh tạo nhiều socket
 
     const socket: Socket = io(baseURL, {
+      path: "/api/socket.io",
       auth: { token: accessToken },
       transports: ["websocket", "polling"],
       reconnection: true,
