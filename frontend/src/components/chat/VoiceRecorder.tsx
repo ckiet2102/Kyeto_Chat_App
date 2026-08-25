@@ -4,6 +4,7 @@ import { Square, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface VoiceRecorderProps {
+  initialStream?: MediaStream | null;
   onSendVoice: (audioBlob: Blob, duration: number, extension: string) => void;
   onCancel: () => void;
 }
@@ -27,13 +28,14 @@ export const getSupportedAudioMimeType = (): { mimeType: string; extension: stri
   return { mimeType: "", extension: "m4a" };
 };
 
-export default function VoiceRecorder({ onSendVoice, onCancel }: VoiceRecorderProps) {
+export default function VoiceRecorder({ initialStream, onSendVoice, onCancel }: VoiceRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
-  const [recordedExtension, setRecordedExtension] = useState<string>("webm");
+  const [recordedExtension, setRecordedExtension] = useState<string>("m4a");
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const activeStreamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<any>(null);
   const isMountedRef = useRef<boolean>(true);
@@ -63,28 +65,38 @@ export default function VoiceRecorder({ onSendVoice, onCancel }: VoiceRecorderPr
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
         mediaRecorderRef.current.stop();
       }
+      if (activeStreamRef.current) {
+        activeStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
     };
   }, []);
 
   const startRecording = async () => {
     try {
-      if (!navigator?.mediaDevices?.getUserMedia) {
-        toast.error("Trình duyệt không hỗ trợ ghi âm hoặc cần kết nối HTTPS / Localhost");
-        onCancel();
-        return;
+      let stream = initialStream;
+
+      if (!stream) {
+        if (!navigator?.mediaDevices?.getUserMedia) {
+          toast.error("Trình duyệt không hỗ trợ ghi âm hoặc cần kết nối HTTPS");
+          onCancel();
+          return;
+        }
+
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
       if (!isMountedRef.current) {
         stream.getTracks().forEach((track) => track.stop());
         return;
       }
+
+      activeStreamRef.current = stream;
 
       const { mimeType, extension } = getSupportedAudioMimeType();
       setRecordedExtension(extension);
@@ -108,26 +120,26 @@ export default function VoiceRecorder({ onSendVoice, onCancel }: VoiceRecorderPr
       };
 
       mediaRecorder.onstop = () => {
-        const actualType = mediaRecorder.mimeType || mimeType || "audio/webm";
+        const actualType = mediaRecorder.mimeType || mimeType || "audio/mp4";
         const blob = new Blob(chunksRef.current, { type: actualType });
         setRecordedBlob(blob);
         // Stop audio tracks
-        stream.getTracks().forEach((track) => track.stop());
+        if (activeStreamRef.current) {
+          activeStreamRef.current.getTracks().forEach((track) => track.stop());
+        }
       };
 
-      // Request data every 250ms for reliable chunks
       try {
         mediaRecorder.start(250);
       } catch (startErr) {
-        // Fallback without timeslice for Safari
         mediaRecorder.start();
       }
       setIsRecording(true);
       startTimer();
     } catch (err: any) {
       console.error("Microphone access error:", err);
-      const errMsg = err?.name === "NotAllowedError" 
-        ? "Bạn đã từ chối quyền truy cập Micro" 
+      const errMsg = err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError"
+        ? "Bạn đã từ chối quyền truy cập Micro. Hãy bật lại trong cài đặt trình duyệt (🔒)." 
         : "Không thể truy cập Microphone";
       toast.error(errMsg);
       onCancel();
@@ -163,7 +175,7 @@ export default function VoiceRecorder({ onSendVoice, onCancel }: VoiceRecorderPr
         }
       }
       mediaRecorderRef.current.onstop = () => {
-        const actualType = mediaRecorderRef.current?.mimeType || "audio/webm";
+        const actualType = mediaRecorderRef.current?.mimeType || "audio/mp4";
         const blob = new Blob(chunksRef.current, { type: actualType });
         if (blob.size > 0) {
           onSendVoice(blob, currentSeconds, extension);
@@ -222,17 +234,17 @@ export default function VoiceRecorder({ onSendVoice, onCancel }: VoiceRecorderPr
             className="size-8 rounded-full text-red-500 hover:bg-red-500/10"
             title="Dừng ghi âm"
           >
-            <Square className="size-4" />
+            <Square className="size-4 fill-current" />
           </Button>
         )}
 
         <Button
           size="icon"
           onClick={handleSend}
-          className="size-8 rounded-full bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 hover:scale-105 transition-transform"
+          className="size-8 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
           title="Gửi tin nhắn thoại"
         >
-          <Send className="size-4 fill-slate-950 text-slate-950 ml-0.5" />
+          <Send className="size-4" />
         </Button>
       </div>
     </div>

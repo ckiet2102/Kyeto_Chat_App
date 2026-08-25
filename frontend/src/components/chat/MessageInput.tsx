@@ -37,6 +37,7 @@ const MessageInput = ({ selectedConvo }: { selectedConvo: Conversation }) => {
     isImage: boolean;
   } | null>(null);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
 
   // Mention State
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
@@ -70,10 +71,39 @@ const MessageInput = ({ selectedConvo }: { selectedConvo: Conversation }) => {
       }
       toast.success("Đã gửi tin nhắn thoại!");
       setIsRecordingVoice(false);
+      if (audioStream) {
+        audioStream.getTracks().forEach((track) => track.stop());
+        setAudioStream(null);
+      }
     } catch (err) {
       toast.error("Lỗi khi gửi tin nhắn thoại");
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleStartRecordingClick = async () => {
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      toast.error("Vui lòng truy cập trang qua HTTPS hoặc dùng trình duyệt hiện đại để sử dụng Micro.");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+      setAudioStream(stream);
+      setIsRecordingVoice(true);
+    } catch (err: any) {
+      console.error("Microphone permission error:", err);
+      if (err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError") {
+        toast.error("Bạn đã chặn quyền Micro. Hãy nhấp vào biểu tượng 🔒 ở thanh địa chỉ web để bật lại!");
+      } else {
+        toast.error("Không thể mở Micro. Vui lòng kiểm tra thiết bị của bạn.");
+      }
     }
   };
 
@@ -495,8 +525,15 @@ const MessageInput = ({ selectedConvo }: { selectedConvo: Conversation }) => {
       {isRecordingVoice ? (
         <div className="p-3 border-t border-amber-500/20 bg-card">
           <VoiceRecorder
+            initialStream={audioStream}
             onSendVoice={handleSendVoice}
-            onCancel={() => setIsRecordingVoice(false)}
+            onCancel={() => {
+              setIsRecordingVoice(false);
+              if (audioStream) {
+                audioStream.getTracks().forEach((track) => track.stop());
+                setAudioStream(null);
+              }
+            }}
           />
         </div>
       ) : (
@@ -537,7 +574,7 @@ const MessageInput = ({ selectedConvo }: { selectedConvo: Conversation }) => {
 
             {/* Voice Recorder Button */}
             <button
-              onClick={() => setIsRecordingVoice(true)}
+              onClick={handleStartRecordingClick}
               className="p-1.5 sm:p-2 rounded-full hover:bg-muted hover:text-foreground text-muted-foreground transition-smooth"
               title="Ghi âm giọng nói"
             >
