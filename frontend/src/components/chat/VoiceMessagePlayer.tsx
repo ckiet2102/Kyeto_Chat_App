@@ -1,19 +1,15 @@
-import { useState, useRef } from "react";
-import { Play, Pause } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Play, Pause, Volume2, VolumeX } from "lucide-react";
 import { Button } from "../ui/button";
 import { fixFileUrl } from "@/lib/urlFix";
+import api from "@/lib/axios";
 
 interface VoiceMessagePlayerProps {
   src: string;
   isOwn?: boolean;
-  initialDuration?: number;
+  initialDuration?: number; // seconds from metadata if available
   customColor?: string;
 }
-
-// 20 vertical waveform bar heights representing realistic audio spectrum
-const WAVEFORM_HEIGHTS = [
-  35, 65, 40, 85, 55, 95, 70, 45, 80, 100, 60, 40, 75, 90, 50, 65, 80, 45, 30, 60,
-];
 
 export default function VoiceMessagePlayer({
   src,
@@ -21,12 +17,55 @@ export default function VoiceMessagePlayer({
   initialDuration = 0,
   customColor,
 }: VoiceMessagePlayerProps) {
-  const fixedSrc = fixFileUrl(src);
+  const [audioUrl, setAudioUrl] = useState<string>("");
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState<number>(initialDuration);
   const [, setHasError] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [loadingAudio, setLoadingAudio] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    let createdObjectUrl: string | null = null;
+
+    const loadAudio = async () => {
+      if (!src) return;
+      const targetUrl = fixFileUrl(src);
+
+      if (targetUrl.startsWith("blob:") || targetUrl.startsWith("data:")) {
+        if (isMounted) setAudioUrl(targetUrl);
+        return;
+      }
+
+      setLoadingAudio(true);
+      try {
+        const response = await api.get(targetUrl, { responseType: "blob" });
+        if (isMounted) {
+          createdObjectUrl = URL.createObjectURL(response.data);
+          setAudioUrl(createdObjectUrl);
+          setHasError(false);
+        }
+      } catch (err) {
+        console.warn("Axios audio blob fetch error, falling back to direct targetUrl:", err);
+        if (isMounted) {
+          setAudioUrl(targetUrl);
+        }
+      } finally {
+        if (isMounted) setLoadingAudio(false);
+      }
+    };
+
+    loadAudio();
+
+    return () => {
+      isMounted = false;
+      if (createdObjectUrl) {
+        URL.revokeObjectURL(createdObjectUrl);
+      }
+    };
+  }, [src]);
 
   const formatTime = (secs: number) => {
     if (isNaN(secs) || secs < 0 || !isFinite(secs)) return "0:00";
@@ -36,19 +75,29 @@ export default function VoiceMessagePlayer({
   };
 
   const togglePlay = () => {
-    if (!audioRef.current) return;
+    if (!audioRef.current || !audioUrl) return;
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
       setHasError(false);
-      audioRef.current.play().then(() => {
-        setIsPlaying(true);
-      }).catch((err) => {
-        console.error("Audio playback error:", err, "src:", fixedSrc);
-        setHasError(true);
-        setIsPlaying(false);
-      });
+      audioRef.current
+        .play()
+        .then(() => {
+          setIsPlaying(true);
+        })
+        .catch((err) => {
+          console.error("Audio playback error:", err, "url:", audioUrl);
+          setHasError(true);
+          setIsPlaying(false);
+        });
+    }
+  };
+
+  const toggleMute = () => {
+    if (audioRef.current) {
+      audioRef.current.muted = !isMuted;
+      setIsMuted(!isMuted);
     }
   };
 
@@ -77,7 +126,7 @@ export default function VoiceMessagePlayer({
   };
 
   const handleError = (e: any) => {
-    console.warn("[VoiceMessagePlayer] Audio error:", e, "src:", fixedSrc);
+    console.warn("[VoiceMessagePlayer] Audio error:", e, "src:", audioUrl);
     setHasError(true);
     setIsPlaying(false);
   };
@@ -90,47 +139,39 @@ export default function VoiceMessagePlayer({
       : 0;
 
   const progressRatio =
-    effectiveDuration > 0 ? Math.min(1, Math.max(0, currentTime / effectiveDuration)) : 0;
+    effectiveDuration > 0 ? Math.min(100, (currentTime / effectiveDuration) * 100) : 0;
 
-  const handleWaveformClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!audioRef.current || !effectiveDuration) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
-    const ratio = Math.max(0, Math.min(1, clickX / rect.width));
-    const targetTime = ratio * (effectiveDuration || 100);
-    if (audioRef.current) {
-      audioRef.current.currentTime = targetTime;
-      setCurrentTime(targetTime);
-    }
+    const ratio = clickX / rect.width;
+    const newTime = ratio * effectiveDuration;
+    audioRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
   };
-
-  const getContainerStyle = () => {
-    if (isOwn && customColor) {
-      return { backgroundColor: customColor, color: "#ffffff" };
-    }
-    return {};
-  };
-
-  const isPausedMidtrack = !isPlaying && currentTime > 0 && currentTime < effectiveDuration;
 
   return (
     <div
-      style={getContainerStyle()}
-      className={`flex items-center gap-3 px-4 py-2.5 rounded-full min-w-[200px] max-w-[280px] sm:max-w-[320px] shadow-sm transition-all select-none ${
+      className={`flex items-center gap-2.5 px-3 py-2 rounded-2xl max-w-[260px] sm:max-w-[300px] shadow-sm select-none transition-colors ${
         isOwn
-          ? !customColor && "bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 font-medium"
-          : "bg-card dark:bg-zinc-800/90 text-foreground border border-border/60"
+          ? "bg-primary text-primary-foreground"
+          : "bg-muted/80 text-foreground border border-border/50"
       }`}
+      style={customColor && isOwn ? { backgroundColor: customColor } : undefined}
     >
-      <audio
-        ref={audioRef}
-        src={fixedSrc}
-        preload="metadata"
-        onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={handleLoadedMetadata}
-        onDurationChange={handleLoadedMetadata}
-        onEnded={handleEnded}
-        onError={handleError}
-      />
+      {audioUrl && (
+        <audio
+          ref={audioRef}
+          src={audioUrl}
+          preload="metadata"
+          onTimeUpdate={handleTimeUpdate}
+          onLoadedMetadata={handleLoadedMetadata}
+          onDurationChange={handleLoadedMetadata}
+          onEnded={handleEnded}
+          onError={handleError}
+        />
+      )}
 
       {/* Solid Play/Pause Button */}
       <Button
@@ -138,53 +179,41 @@ export default function VoiceMessagePlayer({
         variant="ghost"
         size="icon"
         onClick={togglePlay}
+        disabled={loadingAudio || !audioUrl}
         className="size-8 rounded-full shrink-0 hover:scale-105 active:scale-95 transition-transform p-0 text-current hover:bg-black/10 dark:hover:bg-white/10"
       >
         {isPlaying ? (
-          <Pause className="size-5 fill-current" />
+          <Pause className="size-4 fill-current" />
         ) : (
-          <Play className="size-5 fill-current ml-0.5" />
+          <Play className="size-4 fill-current translate-x-0.5" />
         )}
       </Button>
 
-      {/* Waveform Visualizer & Seek Area */}
-      <div
-        onClick={handleWaveformClick}
-        className="flex items-center gap-[3px] flex-1 h-7 cursor-pointer py-1 group/wave"
-        title="Bấm để tua"
-      >
-        {WAVEFORM_HEIGHTS.map((height, i) => {
-          const barRatio = (i + 1) / WAVEFORM_HEIGHTS.length;
-          const isFilled = barRatio <= progressRatio;
+      {/* Waveform / Progress Slider */}
+      <div className="flex-1 flex flex-col justify-center gap-1 cursor-pointer" onClick={handleSeek}>
+        <div className="relative w-full h-2 rounded-full overflow-hidden bg-black/15 dark:bg-white/15">
+          <div
+            className="absolute top-0 left-0 bottom-0 bg-current transition-all duration-100 ease-linear rounded-full"
+            style={{ width: `${progressRatio}%` }}
+          />
+        </div>
 
-          return (
-            <div
-              key={i}
-              className="flex-1 flex items-center justify-center h-full"
-            >
-              <span
-                className={`w-full max-w-[3px] rounded-full transition-all duration-150 ${
-                  isOwn
-                    ? isFilled
-                      ? "bg-current opacity-100"
-                      : "bg-current opacity-40 group-hover/wave:opacity-60"
-                    : isFilled
-                    ? "bg-amber-500 dark:bg-amber-400 opacity-100"
-                    : "bg-muted-foreground/30 dark:bg-muted-foreground/40 group-hover/wave:opacity-60"
-                } ${isPlaying && isFilled ? "animate-pulse" : ""}`}
-                style={{ height: `${height}%` }}
-              />
-            </div>
-          );
-        })}
+        <div className="flex items-center justify-between text-[11px] font-mono opacity-80 leading-none">
+          <span>{formatTime(currentTime)}</span>
+          <span>{formatTime(effectiveDuration)}</span>
+        </div>
       </div>
 
-      {/* Duration & Playback Timer Display */}
-      <span className="text-xs font-mono font-bold shrink-0 opacity-90 text-right">
-        {isPlaying || isPausedMidtrack
-          ? `${formatTime(currentTime)} / ${formatTime(effectiveDuration)}`
-          : formatTime(effectiveDuration)}
-      </span>
+      {/* Mute toggle button */}
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        onClick={toggleMute}
+        className="size-6 rounded-full shrink-0 text-current opacity-70 hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10 p-0"
+      >
+        {isMuted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}
+      </Button>
     </div>
   );
 }
