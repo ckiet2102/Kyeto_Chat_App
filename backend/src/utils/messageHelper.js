@@ -23,7 +23,7 @@ export const updateConversationAfterCreateMessage = (
 };
 
 export const emitNewMessage = (io, conversation, message) => {
-  io.to(conversation._id.toString()).emit("new-message", {
+  const payload = {
     message,
     conversation: {
       _id: conversation._id,
@@ -31,5 +31,16 @@ export const emitNewMessage = (io, conversation, message) => {
       lastMessageAt: conversation.lastMessageAt,
     },
     unreadCounts: conversation.unreadCounts,
-  });
+  };
+
+  // 1. Broadcast to conversation room
+  io.to(conversation._id.toString()).emit("new-message", payload);
+
+  // 2. Broadcast to each participant's user room
+  if (conversation && conversation.participants) {
+    conversation.participants.forEach((p) => {
+      const pIdStr = p.userId ? p.userId.toString() : p.toString();
+      io.to(pIdStr).emit("new-message", payload);
+    });
+  }
 };

@@ -229,7 +229,7 @@ export const useChatStore = create<ChatState>()(
             );
           }
 
-          await chatService.sendDirectMessage(
+          const newMsg = await chatService.sendDirectMessage(
             recipientId,
             encryptedContent,
             imgUrl,
@@ -243,10 +243,15 @@ export const useChatStore = create<ChatState>()(
             location,
             mentions
           );
+
+          if (newMsg) {
+            await get().addMessage(newMsg);
+          }
+
           const now = new Date().toISOString();
           set((state) => {
             const updated = state.conversations.map((c) =>
-              c._id === targetConvoId
+              c._id === (newMsg?.conversationId || targetConvoId)
                 ? {
                     ...c,
                     seenBy: [],
@@ -294,7 +299,7 @@ export const useChatStore = create<ChatState>()(
             );
           }
 
-          await chatService.sendGroupMessage(
+          const newMsg = await chatService.sendGroupMessage(
             conversationId,
             encryptedContent,
             imgUrl,
@@ -307,6 +312,11 @@ export const useChatStore = create<ChatState>()(
             location,
             mentions
           );
+
+          if (newMsg) {
+            await get().addMessage(newMsg);
+          }
+
           const now = new Date().toISOString();
           set((state) => {
             const updated = state.conversations.map((c) =>
