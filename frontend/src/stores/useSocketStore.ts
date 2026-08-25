@@ -12,13 +12,27 @@ import { NotificationService } from "@/services/notificationService";
 import { PushNotificationService } from "@/services/pushNotificationService";
 
 const getSocketBaseURL = () => {
-  const raw = (import.meta.env.VITE_SOCKET_URL || "").trim();
-  if (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
-    if (!raw || raw.includes("localhost")) {
-      return window.location.origin;
+  const socketUrl = (import.meta.env.VITE_SOCKET_URL || "").trim();
+  if (socketUrl && !socketUrl.includes("localhost")) {
+    return socketUrl.replace(/\/$/, "");
+  }
+
+  const apiUrl = (import.meta.env.VITE_API_URL || "").trim();
+  if (apiUrl && !apiUrl.includes("localhost")) {
+    return apiUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
+  }
+
+  if (typeof window !== "undefined") {
+    const isLocal =
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname.startsWith("192.168.");
+    if (!isLocal) {
+      return "https://tieuchankiet.id.vn";
     }
   }
-  return (raw && raw.length > 10 && raw.startsWith("http")) ? raw : "http://localhost:5001";
+
+  return "http://localhost:5001";
 };
 
 const baseURL = getSocketBaseURL();
