@@ -28,7 +28,8 @@ io.on("connection", async (socket) => {
 
   // console.log(`${user.displayName} online với socket ${socket.id}`);
 
-  onlineUsers.set(user._id, socket.id);
+  const userIdStr = user._id.toString();
+  onlineUsers.set(userIdStr, socket.id);
 
   io.emit("online-users", Array.from(onlineUsers.keys()));
 
@@ -41,7 +42,7 @@ io.on("connection", async (socket) => {
     socket.join(conversationId);
   });
 
-  socket.join(user._id.toString());
+  socket.join(userIdStr);
 
   registerCallHandlers(io, socket, user);
 
@@ -63,7 +64,7 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("disconnect", () => {
-    onlineUsers.delete(user._id);
+    onlineUsers.delete(userIdStr);
     io.emit("online-users", Array.from(onlineUsers.keys()));
     /* console.log(`socket disconnected: ${socket.id}`); */
   });

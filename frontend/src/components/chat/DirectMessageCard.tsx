@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import type { Conversation } from "@/types/chat";
 import ChatCard from "./ChatCard";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -7,6 +8,7 @@ import UserAvatar from "./UserAvatar";
 import StatusBadge from "./StatusBadge";
 import UnreadCountBadge from "./UnreadCountBadge";
 import { useSocketStore } from "@/stores/useSocketStore";
+import { CryptoService } from "@/services/cryptoService";
 
 const DirectMessageCard = ({ convo }: { convo: Conversation }) => {
   const { user } = useAuthStore();
@@ -19,7 +21,8 @@ const DirectMessageCard = ({ convo }: { convo: Conversation }) => {
   const otherUser = convo.participants.find((p) => p._id !== user._id);
   if (!otherUser) return null;
 
-  const otherUserNickname = (convo.settings as any)?.nicknames?.[otherUser._id] ||
+  const otherUserNickname =
+    (convo.settings as any)?.nicknames?.[otherUser._id] ||
     (typeof (convo.settings as any)?.nicknames?.get === "function"
       ? (convo.settings as any).nicknames.get(otherUser._id)
       : null);
@@ -28,19 +31,46 @@ const DirectMessageCard = ({ convo }: { convo: Conversation }) => {
 
   const unreadCount = convo.unreadCounts[user._id];
   const lastMessageObj = convo.lastMessage as any;
-  const isVoice = lastMessageObj?.fileType === "voice" || (lastMessageObj?.fileUrl && lastMessageObj?.fileName?.includes("voice"));
-  const rawContent = lastMessageObj?.content || "";
-  const displayContent = (rawContent.startsWith("ECDH:") || rawContent.startsWith("E2EE:"))
-    ? "*Không thể giải mã tin nhắn*"
-    : rawContent;
+  const isVoice =
+    lastMessageObj?.fileType === "voice" ||
+    (lastMessageObj?.fileUrl && lastMessageObj?.fileName?.includes("voice"));
+
+  const [displayContent, setDisplayContent] = useState<string>(() => {
+    const raw = lastMessageObj?.content || "";
+    if (raw.startsWith("ECDH:") || raw.startsWith("E2EE:")) {
+      return "[Tin nhắn mã hóa]";
+    }
+    return raw;
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    const rawContent = lastMessageObj?.content || "";
+
+    if (rawContent.startsWith("ECDH:") || rawContent.startsWith("E2EE:")) {
+      CryptoService.decryptMessage(rawContent, "moji-default-key", user._id, otherUser._id)
+        .then((decrypted) => {
+          if (isMounted) setDisplayContent(decrypted);
+        })
+        .catch(() => {
+          if (isMounted) setDisplayContent("[Tin nhắn mã hóa]");
+        });
+    } else {
+      setDisplayContent(rawContent);
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [lastMessageObj?.content, user._id, otherUser._id]);
 
   const lastMessage = isVoice
     ? "[Tin nhắn thoại]"
     : lastMessageObj?.imgUrl
-      ? "[Hình ảnh]"
-      : lastMessageObj?.fileUrl
-        ? "[Tệp đính kèm]"
-        : displayContent;
+    ? "[Hình ảnh]"
+    : lastMessageObj?.fileUrl
+    ? "[Tệp đính kèm]"
+    : displayContent;
 
   const handleSelectConversation = async (id: string) => {
     setActiveConversation(id);
@@ -48,6 +78,10 @@ const DirectMessageCard = ({ convo }: { convo: Conversation }) => {
       await fetchMessages();
     }
   };
+
+  const isOnline = onlineUsers.some(
+    (uId) => uId === otherUser._id || uId?.toString() === otherUser._id?.toString()
+  );
 
   return (
     <ChatCard
@@ -70,11 +104,7 @@ const DirectMessageCard = ({ convo }: { convo: Conversation }) => {
             name={displayName}
             avatarUrl={otherUser.avatarUrl ?? undefined}
           />
-          <StatusBadge
-            status={
-              onlineUsers.includes(otherUser?._id ?? "") ? "online" : "offline"
-            }
-          />
+          <StatusBadge status={isOnline ? "online" : "offline"} />
           {unreadCount > 0 && <UnreadCountBadge unreadCount={unreadCount} />}
         </>
       }
