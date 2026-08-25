@@ -88,21 +88,29 @@ const MessageInput = ({ selectedConvo }: { selectedConvo: Conversation }) => {
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+      } catch (cErr) {
+        console.warn("Advanced audio constraints failed, falling back to simple audio:", cErr);
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
       setAudioStream(stream);
       setIsRecordingVoice(true);
     } catch (err: any) {
       console.error("Microphone permission error:", err);
       if (err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError") {
         toast.error("Bạn đã chặn quyền Micro. Hãy nhấp vào biểu tượng 🔒 ở thanh địa chỉ web để bật lại!");
+      } else if (err?.name === "NotFoundError" || err?.name === "DevicesNotFoundError") {
+        toast.error("Không tìm thấy thiết bị Microphone trên máy tính/điện thoại của bạn!");
       } else {
-        toast.error("Không thể mở Micro. Vui lòng kiểm tra thiết bị của bạn.");
+        toast.error(`Lỗi mở Micro (${err?.name || "Lỗi"}): ${err?.message || "Vui lòng kiểm tra lại thiết bị"}`);
       }
     }
   };

@@ -82,13 +82,17 @@ export default function VoiceRecorder({ initialStream, onSendVoice, onCancel }: 
           return;
         }
 
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        });
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
+          });
+        } catch (cErr) {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
       }
 
       if (!isMountedRef.current) {
