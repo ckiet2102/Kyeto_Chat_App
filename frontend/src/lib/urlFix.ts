@@ -1,6 +1,6 @@
 /**
  * Fix file and media URLs for multi-environment support (Local, Hosting, Vercel + Backend).
- * Resolves localhost:5001 and relative /uploads/ paths to the correct backend origin.
+ * Resolves localhost:5001, vercel.app, and relative /uploads/ paths to the correct backend origin.
  */
 export function fixFileUrl(url: string | undefined | null): string {
   if (!url) return "";
@@ -32,19 +32,23 @@ export function fixFileUrl(url: string | undefined | null): string {
     }
 
     if (!isLocalhostEnv) {
-      // Replace localhost references with live backend origin
-      if (url.includes("localhost:5001") || url.includes("127.0.0.1:5001")) {
-        return url
+      let cleanUrl = url;
+      // Strip any wrong frontend domain or localhost references
+      if (cleanUrl.includes("kyeto-chat-app.vercel.app")) {
+        cleanUrl = cleanUrl.replace(/https?:\/\/kyeto-chat-app\.vercel\.app/g, backendOrigin);
+      }
+      if (cleanUrl.includes("localhost:5001") || cleanUrl.includes("127.0.0.1:5001")) {
+        cleanUrl = cleanUrl
           .replace(/https?:\/\/localhost:5001/g, backendOrigin)
           .replace(/https?:\/\/127\.0\.0\.1:5001/g, backendOrigin);
       }
-      if (url.startsWith("/uploads/")) {
-        return `${backendOrigin}${url}`;
+      if (cleanUrl.startsWith("/uploads/")) {
+        cleanUrl = `${backendOrigin}${cleanUrl}`;
       }
-      // Convert http to https for production audio streaming security
-      if (url.startsWith("http://") && !url.includes("localhost")) {
-        return url.replace("http://", "https://");
+      if (cleanUrl.startsWith("http://") && !cleanUrl.includes("localhost")) {
+        cleanUrl = cleanUrl.replace("http://", "https://");
       }
+      return cleanUrl;
     }
   }
 
