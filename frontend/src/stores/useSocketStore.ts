@@ -46,10 +46,16 @@ export const useSocketStore = create<SocketState>((set, get) => ({
 
     if (existingSocket) return; // tránh tạo nhiều socket
 
+    const isLocalEnv =
+      typeof window !== "undefined" &&
+      (window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1");
+
     const socket: Socket = io(baseURL, {
       path: "/api/socket.io",
       auth: { token: accessToken },
-      transports: ["websocket", "polling"],
+      // Use websocket first, fall back to polling for shared hosting envs
+      transports: isLocalEnv ? ["websocket", "polling"] : ["polling", "websocket"],
       reconnection: true,
       reconnectionAttempts: 15,
       reconnectionDelay: 1000,
