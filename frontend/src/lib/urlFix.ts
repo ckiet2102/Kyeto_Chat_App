@@ -1,12 +1,16 @@
 /**
  * Fix file and media URLs for multi-environment support (Local, Hosting, Vercel + Render).
- * Resolves localhost:5001 and relative /uploads/ paths to the correct backend origin.
+ * Resolves localhost:5001, tieuchankiet.id.vn and relative /uploads/ paths to the correct backend origin.
  */
 export function fixFileUrl(url: string | undefined | null): string {
   if (!url) return "";
 
-  // If already full HTTPS URL (like Cloudinary https://res.cloudinary.com/...), return as-is
-  if (url.startsWith("https://") && !url.includes("localhost") && !url.includes("127.0.0.1")) {
+  // Cloudinary or external HTTPS media (like Google avatars) should remain untouched
+  if (
+    url.includes("cloudinary.com") ||
+    url.includes("googleusercontent.com") ||
+    url.includes("lh3.googleusercontent.com")
+  ) {
     return url;
   }
 
@@ -20,18 +24,22 @@ export function fixFileUrl(url: string | undefined | null): string {
     let backendOrigin = "";
 
     if (viteApiUrl && !viteApiUrl.includes("localhost")) {
-      // Remove trailing /api or /
       backendOrigin = viteApiUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
     } else {
       backendOrigin = window.location.origin;
     }
 
-    // On remote/production environments (e.g. Vercel)
     if (!isLocalhostEnv) {
-      if (url.includes("localhost:5001") || url.includes("127.0.0.1:5001")) {
+      // Replace old domains (localhost, tieuchankiet.id.vn) with active backend origin
+      if (
+        url.includes("localhost:5001") ||
+        url.includes("127.0.0.1:5001") ||
+        url.includes("tieuchankiet.id.vn")
+      ) {
         return url
           .replace(/https?:\/\/localhost:5001/g, backendOrigin)
-          .replace(/https?:\/\/127\.0\.0\.1:5001/g, backendOrigin);
+          .replace(/https?:\/\/127\.0\.0\.1:5001/g, backendOrigin)
+          .replace(/https?:\/\/tieuchankiet\.id\.vn/g, backendOrigin);
       }
       if (url.startsWith("/uploads/")) {
         return `${backendOrigin}${url}`;

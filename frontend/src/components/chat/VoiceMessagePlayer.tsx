@@ -25,7 +25,7 @@ export default function VoiceMessagePlayer({
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState<number>(initialDuration);
-  const [hasError, setHasError] = useState(false);
+  const [, setHasError] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const formatTime = (secs: number) => {
@@ -36,17 +36,19 @@ export default function VoiceMessagePlayer({
   };
 
   const togglePlay = () => {
-    if (!audioRef.current || hasError) return;
+    if (!audioRef.current) return;
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      audioRef.current.play().catch((err) => {
-        console.error("Audio playback error:", err);
+      setHasError(false);
+      audioRef.current.play().then(() => {
+        setIsPlaying(true);
+      }).catch((err) => {
+        console.error("Audio playback error:", err, "src:", fixedSrc);
         setHasError(true);
         setIsPlaying(false);
       });
-      setIsPlaying(true);
     }
   };
 
@@ -75,7 +77,7 @@ export default function VoiceMessagePlayer({
   };
 
   const handleError = (e: any) => {
-    console.warn("[VoiceMessagePlayer] Audio error:", e);
+    console.warn("[VoiceMessagePlayer] Audio error:", e, "src:", fixedSrc);
     setHasError(true);
     setIsPlaying(false);
   };
