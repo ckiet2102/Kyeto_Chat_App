@@ -61,6 +61,11 @@ import { testEmailDiagnostic } from "./controllers/authController.js";
 app.get("/api/test-email", testEmailDiagnostic);
 app.use("/api/auth", authRoute);
 
+// health check (used by keep-alive pings)
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
 // private routes
 import aiRoute from "./routes/aiRoute.js";
 
@@ -91,5 +96,20 @@ connectDB().then(async () => {
   startMessageExpiryCron();
   server.listen(PORT, () => {
     console.log(`server bắt đầu trên cổng ${PORT}`);
+
+    // Keep-alive: self-ping every 14 minutes to prevent Render free tier from sleeping
+    const SELF_URL = process.env.SERVER_URL || process.env.CLIENT_URL || "";
+    if (SELF_URL && SELF_URL.includes("onrender.com")) {
+      const pingUrl = `${SELF_URL.replace(/\/$/, "")}/api/health`;
+      setInterval(async () => {
+        try {
+          const res = await fetch(pingUrl);
+          console.log(`[Keep-alive] Ping ${pingUrl} → ${res.status}`);
+        } catch (err) {
+          console.warn(`[Keep-alive] Ping failed:`, err.message);
+        }
+      }, 14 * 60 * 1000); // every 14 minutes
+      console.log(`[Keep-alive] Self-ping started → ${pingUrl}`);
+    }
   });
 });
